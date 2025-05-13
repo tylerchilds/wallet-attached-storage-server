@@ -8,7 +8,6 @@ export interface IServer extends Fetchable {
 
 export type IAssert = typeof import('node:assert')
 
-
 export interface ITestOptions {
   assert: IAssert
   createRequest: (url: string | URL, init?: RequestInit) => Request
