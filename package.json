@@ -1,0 +1,25 @@
+{
+  "type": "module",
+  "name": "wallet-attached-storage-server-monorepo",
+  "workspaces": [
+    "nodejs",
+    "server",
+    "examples/hono-node-server"
+  ],
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/did-coop/wallet-attached-storage-server.git"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/did-coop/wallet-attached-storage-server/issues"
+  },
+  "homepage": "https://github.com/did-coop/wallet-attached-storage-server#readme",
+  "description": ""
+}

@@ -1,0 +1,21 @@
+{
+  "type": "module",
+  "name": "wallet-attached-storage-server-example-hono-node-server",
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch ./scripts/start.ts",
+    "start": "node ./scripts/start.ts",
+    "test": "node --test"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "",
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "wallet-attached-storage-server": "*"
+  },
+  "engines": {
+    "node": ">=23.6.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "module",
+  "name": "wallet-attached-storage-server-nodejs",
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch ./scripts/start.ts",
+    "start": "node ./scripts/start.ts",
+    "test": "node --test"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "",
+  "dependencies": {
+    "@hono/node-server": "^1.14.1"
+  },
+  "engines": {
+    "node": ">=23.6.0"
+  }
+}
