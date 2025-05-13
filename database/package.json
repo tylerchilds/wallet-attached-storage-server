@@ -1,0 +1,25 @@
+{
+  "type": "module",
+  "name": "wallet-attached-storage-database",
+  "version": "0.0.0",
+  "scripts": {
+    "test": "node --test"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "",
+  "dependencies": {
+    "kysely": "^0.28.2"
+  },
+  "engines": {},
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "import": "./src/types.ts"
+    }
+  }
+}

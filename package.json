@@ -2,6 +2,7 @@
   "type": "module",
   "name": "wallet-attached-storage-server-monorepo",
   "workspaces": [
+    "database",
     "nodejs",
     "server",
     "examples/hono-node-server"

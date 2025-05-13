@@ -15,7 +15,9 @@
     "@hono/node-server": "^1.14.1",
     "better-sqlite3": "^11.10.0",
     "kysely-ctl": "^0.12.2",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "wallet-attached-storage-database": "*",
+    "wallet-attached-storage-server": "*"
   },
   "engines": {
     "node": ">=23.6.0"
