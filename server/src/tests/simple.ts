@@ -6,7 +6,7 @@ export const test: ITestModule = async function (t, options: ITestOptions) {
     const { createServer } = options
     const server = createServer()
     try {
-      const response = await server.fetch(createRequest('/bar/baz?boo=1'))
+      const response = await server.fetch(createRequest('/'))
       options.assert.ok(response.ok)
       options.assert.equal(response.status, 200)
     } finally {

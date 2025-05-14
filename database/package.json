@@ -17,6 +17,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./sqlite3": {
+      "types": "./src/sqlite3/index.ts",
+      "import": "./src/sqlite3/index.ts"
+    },
     "./types": {
       "types": "./src/types.ts",
       "import": "./src/types.ts"
