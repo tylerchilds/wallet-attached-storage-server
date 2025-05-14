@@ -6,6 +6,13 @@ export default class SpaceRepository implements IRepository<ISpace> {
   constructor(database: QueryCreator<DatabaseTables>) {
     this.#database = database
   }
+  async getById(id: string) {
+    const result = await this.#database.selectFrom('space')
+      .selectAll()
+      .where('uuid', '=', id)
+      .executeTakeFirstOrThrow()
+    return result
+  }
   async create(space: Insertable<ISpace>) {
     try {
       await this.#database.insertInto('space')

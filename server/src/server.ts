@@ -1,14 +1,14 @@
 import type { Fetchable } from "./types"
 import type { Database } from 'wallet-attached-storage-database/types'
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import SpaceRepository from "../../database/src/space-repository.ts"
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-
-const CreateSpace = z.object({
-  name: z.string().or(z.null()).optional(),
-  uuid: z.string(),
-})
+import { CreateSpaceRequest } from "./api.zod.ts"
+import { GET as getSpacesIndex } from './routes/spaces._index.ts'
+import { POST as postSpacesIndex } from './routes/spaces._index.ts'
+import { GET as getSpaceByUuid } from './routes/space.$uuid.ts'
 
 /**
  * Hono instance encapsulating HTTP routing for Wallet Attached Storage Server
@@ -21,38 +21,25 @@ export class ServerHono extends Hono {
     this.#configureRoutes(this)
   }
   #configureRoutes(hono: Hono) {
+    const spaces = new SpaceRepository(this.#data)
+
     hono.get('/', async c => {
-      return Response.json({ message: 'Hello from the Wallet Attached Storage Server!' })
-    })
-    hono.get('/spaces/', async c => {
-      const spacesArray = await new SpaceRepository(this.#data).toArray()
-      return c.json({
-        items: spacesArray,
+      return Response.json({
+        name: 'Wallet Attached Storage',
+        spaces: 'spaces',
+        type: [
+          'SpaceRepository',
+          'Service',
+        ],
       })
     })
-    hono.post('/spaces/', async c => {
-      // request body is optional
-      const bodyText = await c.req.text().then(t => t.trim())
-      let requestBodyObject
-      if ( ! bodyText) {
-        // no request body, no requestBodyObject
-        requestBodyObject = {
-          uuid: crypto.randomUUID(),
-        }
-      } else {
-        requestBodyObject = JSON.parse(bodyText)
-      }
 
-      const authorization = c.req.raw.headers.get('authorization')
-      // console.debug('POST /spaces/ authorization', authorization)
+    // redirect GET /spaces -> /spaces/ with trailing slash
+    hono.get('/spaces', async c => c.redirect('/spaces/'))
 
-      const createSpaceRequest = CreateSpace.parse(requestBodyObject)
-      const created = await new SpaceRepository(this.#data).create(createSpaceRequest)
-      const pathnameOfSpace = `/space/${createSpaceRequest.uuid}`
-      return c.newResponse(null, 201, {
-        'Location': pathnameOfSpace,
-      })
-    })
+    hono.get('/spaces/', getSpacesIndex(spaces))
+    hono.post('/spaces/', postSpacesIndex(spaces))
+    hono.get('/space/:uuid', getSpaceByUuid(spaces))
   }
 }
 

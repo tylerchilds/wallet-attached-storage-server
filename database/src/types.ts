@@ -78,14 +78,17 @@ export type PetUpdate = Updateable<PetTable>
 export interface SpaceTable {
   uuid: Generated<string>
   name: string | null
+  controller: string | null
 }
 
 export interface IRepository<T> {
+  getById(id: string): Promise<Selectable<T> | null>
   create(item: Insertable<T>): Promise<void>
   toArray(): Promise<Selectable<T>[]>
 }
 
 export interface ISpace {
+  controller: string | null
   uuid: string
   name: string | null
 }

@@ -1,6 +1,7 @@
 import type { ITestModule, ITestOptions } from "../types";
 import { Ed25519Signer } from "@did.coop/did-key-ed25519"
 import { createHttpSignatureAuthorization } from "authorization-signature"
+import { GetSpaceResponse } from '../api.zod.ts'
 
 export const test: ITestModule = async function (t, options: ITestOptions) {
 
@@ -43,7 +44,6 @@ export const test: ITestModule = async function (t, options: ITestOptions) {
         options.assert.ok(response.ok, `response to POST /spaces/ MUST be ok`)
         // response to POST /spaces/ MUST have a Location header linking to the space resource
         const locationHeader = response.headers.get('Location')
-        console.debug('locationHeader', locationHeader)
         options.assert.ok(locationHeader, `response to POST /spaces/ MUST have a Location header`)
       }
 
@@ -87,10 +87,83 @@ export const test: ITestModule = async function (t, options: ITestOptions) {
     const server = createServer()
     try {
       const response = await server.fetch(request)
-      if ( ! response.ok) {
+      if (!response.ok) {
         console.debug('response', response, await response.clone().text())
       }
       options.assert.equal(response.ok, true, `response to POST /spaces/ MUST be ok`)
+    } finally {
+      server.close()
+    }
+  })
+
+  /**
+   * Often, the client will want to set their local keypair to be the controller of the space.
+   * This should be possible by submitting the initial representation of the space with a
+   * `controller` property set to a did:key DID.
+   */
+  t.test('POST /spaces/ with did:key controller', async t => {
+    const key = await Ed25519Signer.generate()
+
+    const { createRequest } = options
+    const spaceToCreate = {
+      controller: key.controller,
+      uuid: crypto.randomUUID(),
+    }
+    const request = createRequest('/spaces/', {
+      method: 'POST',
+      body: new Blob(
+        [JSON.stringify(spaceToCreate)],
+        { type: 'application/json', }
+      ),
+      headers: {
+        Authorization: await createHttpSignatureAuthorization({
+          signer: key,
+          url: new URL('/spaces/', 'http://example.example'),
+          method: 'POST',
+          headers: {},
+          includeHeaders: [
+            '(key-id)',
+            '(request-target)',
+          ],
+          created: new Date,
+        })
+      }
+    })
+
+    const { createServer } = options
+    const server = createServer()
+    try {
+      const response = await server.fetch(request)
+      if (!response.ok) {
+        console.debug('response', response, await response.clone().text())
+      }
+      options.assert.equal(response.ok, true, `response to POST /spaces/ MUST be ok`)
+
+      // The response should have a location header
+      const locationHeader = response.headers.get('Location')
+      options.assert.ok(locationHeader, `response to POST /spaces/ MUST have a Location header`)
+
+      /*
+      Ok, at this point we have added the space to the server.
+      It should also have saved the controller.
+      Let's verify that the controller is set correctly.
+      */
+     {
+      // fetch the space with a GET request
+      const requestToGetSpace = createRequest(locationHeader)
+      const responseToGetSpace = await server.fetch(requestToGetSpace)
+
+      // should the status be 200 or 401?
+      // @todo: I think it should be 4xx because the space controller is set and the space is not public,
+      //   and the request does not include proof of authorization to GET.
+      //   It should maybe respond with a WWW-Authenticate header indicating the auth profile to use.
+      options.assert.equal(responseToGetSpace.status, 200, `response status to GET /spaces/ MUST be 200`)
+      const spaceFromGetSpace = GetSpaceResponse.parse(await responseToGetSpace.json())
+      // expect fetched space.controller to match the controller we originally set
+      options.assert.equal(spaceFromGetSpace.controller, spaceToCreate.controller,
+        `space.controller from GET /spaces/ MUST match space.controller from POST /spaces/`)
+     }
+
     } finally {
       server.close()
     }
