@@ -4,11 +4,13 @@ import Sqlite3Database from 'better-sqlite3'
 import type { Database } from 'wallet-attached-storage-database/types'
 import { createDatabaseFromSqlite3Url } from 'wallet-attached-storage-database/sqlite3'
 import WAS from 'wallet-attached-storage-server'
+import { initializeDatabaseSchema } from '../../database/src/schema.ts'
 
 // store data in-memory
 const data = createDatabaseFromEnv({
   DATABASE_URL: process.env.DATABASE_URL,
 })
+await initializeDatabaseSchema(data)
 
 const { fetch } = new WAS.Server(data)
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0

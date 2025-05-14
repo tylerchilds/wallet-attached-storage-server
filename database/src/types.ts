@@ -79,3 +79,13 @@ export interface SpaceTable {
   uuid: Generated<string>
   name: string
 }
+
+export interface IRepository<T> {
+  create(item: Insertable<T>): Promise<void>
+  toArray(): Promise<Selectable<T>[]>
+}
+
+export interface ISpace {
+  uuid: Generated<string>
+  name: string
+}

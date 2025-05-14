@@ -10,8 +10,8 @@
   "version": "0.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "npm -w nodejs dev",
-    "start": "npm -w nodejs start",
+    "dev": "npm -w nodejs run dev",
+    "start": "npm -w nodejs run start",
     "test": "node --test"
   },
   "repository": {
