@@ -1,6 +1,8 @@
 import { describe, test } from 'node:test'
 import { serve } from '@hono/node-server'
 import WAS from 'wallet-attached-storage-server'
+import * as sqlite3 from 'wallet-attached-storage-database/sqlite3'
+import * as DB from 'wallet-attached-storage-database'
 import WalletAttachedStorageServerTests, { defaultCreateRequest } from 'wallet-attached-storage-server/tests'
 import nodeAssert from 'node:assert'
 import type { AddressInfo } from 'node:net'
@@ -18,9 +20,14 @@ await describe('WAS.Server#fetch', async () => {
     });
 
     function createServer() {
-      const server = new WAS.Server()
+      const database = sqlite3.createDatabaseFromSqlite3Url('sqlite3::memory:')
+      const schemaInitialized = DB.initializeDatabaseSchema(database)
+      const server = new WAS.Server(database)
       return {
-        fetch: server.fetch,
+        async fetch(request) {
+          await schemaInitialized
+          return server.fetch(request)
+        },
         close() { },
       }
     }
@@ -43,13 +50,16 @@ await describe('@hono/node-server serving WAS.Server', async () => {
 
     // create a server that invokes request by proxying to a node.js server via globalThis.fetch
     function createServer() {
-      const wasServer = new WAS.Server()
+      const database = sqlite3.createDatabaseFromSqlite3Url('sqlite3::memory:')
+      const schemaInitialized = DB.initializeDatabaseSchema(database)
+      const wasServer = new WAS.Server(database)
       const nodeServer = serve({
         port: 8005,
         fetch: wasServer.fetch,
       })
       return {
         async fetch(requestIn) {
+          await schemaInitialized
           const nodeServerUrl = await createAddressUrl(nodeServer.address())
 
           // parse the request url and 
@@ -81,7 +91,7 @@ async function createAddressUrl(address: AddressInfo | string | null) {
 // create a new request object with the same properties as the original request
 // but a new URL
 async function createNewRequest(originalRequest: Request, newUrl: URL) {
-  const body = originalRequest.bodyUsed ? await originalRequest.clone().blob() : null;
+  const body = originalRequest.bodyUsed ? await originalRequest.clone().blob() : originalRequest.clone().body;
 
   const newRequest = new Request(newUrl, {
     method: originalRequest.method,

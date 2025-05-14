@@ -1,8 +1,13 @@
 import type { Fetchable } from "./types"
 import type { Database } from 'wallet-attached-storage-database/types'
 import { Hono } from 'hono'
-import { HTTPException } from 'hono/http-exception'
 import SpaceRepository from "../../database/src/space-repository.ts"
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
+
+const CreateSpace = z.object({
+  name: z.string(),
+})
 
 /**
  * Hono instance encapsulating HTTP routing for Wallet Attached Storage Server
@@ -24,13 +29,10 @@ export class ServerHono extends Hono {
         items: spacesArray,
       })
     })
-    hono.post('/spaces/', async c => {
-      const uuid = crypto.randomUUID()
-      const space = {
-        name: uuid,
-      }
-      await new SpaceRepository(this.#data).create(space)
-      return c.json(space)
+    hono.post('/spaces/', zValidator('json', CreateSpace), async c => {
+      const createSpaceRequest = c.req.valid('json')
+      await new SpaceRepository(this.#data).create(createSpaceRequest)
+      return c.newResponse(null, 201)
     })
   }
 }
