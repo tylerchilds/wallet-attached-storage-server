@@ -6,7 +6,8 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 
 const CreateSpace = z.object({
-  name: z.string(),
+  name: z.string().or(z.null()).optional(),
+  uuid: z.string(),
 })
 
 /**
@@ -29,10 +30,28 @@ export class ServerHono extends Hono {
         items: spacesArray,
       })
     })
-    hono.post('/spaces/', zValidator('json', CreateSpace), async c => {
-      const createSpaceRequest = c.req.valid('json')
-      await new SpaceRepository(this.#data).create(createSpaceRequest)
-      return c.newResponse(null, 201)
+    hono.post('/spaces/', async c => {
+      // request body is optional
+      const bodyText = await c.req.text().then(t => t.trim())
+      let requestBodyObject
+      if ( ! bodyText) {
+        // no request body, no requestBodyObject
+        requestBodyObject = {
+          uuid: crypto.randomUUID(),
+        }
+      } else {
+        requestBodyObject = JSON.parse(bodyText)
+      }
+
+      const authorization = c.req.raw.headers.get('authorization')
+      // console.debug('POST /spaces/ authorization', authorization)
+
+      const createSpaceRequest = CreateSpace.parse(requestBodyObject)
+      const created = await new SpaceRepository(this.#data).create(createSpaceRequest)
+      const pathnameOfSpace = `/space/${createSpaceRequest.uuid}`
+      return c.newResponse(null, 201, {
+        'Location': pathnameOfSpace,
+      })
     })
   }
 }
@@ -51,8 +70,8 @@ export class Server implements Fetchable {
   }
   fetch = async (request: Request) => {
     try {
-    const response = await this.#hono.fetch(request, {})
-    return response
+      const response = await this.#hono.fetch(request, {})
+      return response
     } catch (error) {
       console.error('error', error)
       throw error

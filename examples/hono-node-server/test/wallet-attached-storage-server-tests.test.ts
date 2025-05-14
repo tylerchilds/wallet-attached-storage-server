@@ -91,12 +91,11 @@ async function createAddressUrl(address: AddressInfo | string | null) {
 // create a new request object with the same properties as the original request
 // but a new URL
 async function createNewRequest(originalRequest: Request, newUrl: URL) {
-  const body = originalRequest.bodyUsed ? await originalRequest.clone().blob() : originalRequest.clone().body;
 
   const newRequest = new Request(newUrl, {
     method: originalRequest.method,
     headers: originalRequest.headers,
-    body: body,
+    body: originalRequest.body,
     mode: originalRequest.mode,
     credentials: originalRequest.credentials,
     cache: originalRequest.cache,

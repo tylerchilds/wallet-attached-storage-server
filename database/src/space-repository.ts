@@ -7,11 +7,17 @@ export default class SpaceRepository implements IRepository<ISpace> {
     this.#database = database
   }
   async create(space: Insertable<ISpace>) {
-    await this.#database.insertInto('space')
-      .values({
-        ...space,
+    try {
+      await this.#database.insertInto('space')
+        .values({
+          ...space,
+        })
+        .executeTakeFirstOrThrow()
+    } catch (error) {
+      throw new Error(`Failed to create space`, {
+        cause: error,
       })
-      .executeTakeFirstOrThrow()
+    }
   }
   async toArray() {
     const spaces = await this.#database.selectFrom('space').selectAll().execute()

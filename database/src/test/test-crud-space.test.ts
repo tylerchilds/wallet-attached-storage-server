@@ -9,21 +9,29 @@ describe('CRUD Space', async () => {
     const database = createDatabaseFromSqlite3Url(`sqlite3::memory:`)
     await initializeDatabaseSchema(database)
 
-    // create a space
-    await new SpaceRepository(database).create({
+    const spaceToCreate = {
       name: 'test-space',
-    });
+      uuid: crypto.randomUUID(),
+    }
+
+    // create a space
+    await new SpaceRepository(database).create(spaceToCreate);
 
     // list spaces
     const spaces = await new SpaceRepository(database).toArray()
     assert.equal(spaces.length, 1)
     assert.equal(spaces[0].name, 'test-space')
+    const [space] = spaces
+    assert.equal(space.name, spaceToCreate.name)
+    assert.equal(space.uuid, spaceToCreate.uuid)
 
     // list spaces with transaction
     await database.transaction().execute(async (tx) => {
       const spaces = await new SpaceRepository(tx).toArray()
       assert.equal(spaces.length, 1)
-      assert.equal(spaces[0].name, 'test-space')
+      const [space] = spaces
+      assert.equal(space.name, spaceToCreate.name)
+      assert.equal(space.uuid, spaceToCreate.uuid)
     });
   });
 })

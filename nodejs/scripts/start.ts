@@ -10,6 +10,7 @@ import { initializeDatabaseSchema } from '../../database/src/schema.ts'
 const data = createDatabaseFromEnv({
   DATABASE_URL: process.env.DATABASE_URL,
 })
+data
 await initializeDatabaseSchema(data)
 
 const { fetch } = new WAS.Server(data)

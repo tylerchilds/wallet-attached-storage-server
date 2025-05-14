@@ -77,7 +77,7 @@ export type PetUpdate = Updateable<PetTable>
 
 export interface SpaceTable {
   uuid: Generated<string>
-  name: string
+  name: string | null
 }
 
 export interface IRepository<T> {
@@ -86,6 +86,6 @@ export interface IRepository<T> {
 }
 
 export interface ISpace {
-  uuid: Generated<string>
-  name: string
+  uuid: string
+  name: string | null
 }
