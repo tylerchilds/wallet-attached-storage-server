@@ -11,6 +11,7 @@ import type {
 export interface DatabaseTables {
   person: PersonTable
   pet: PetTable
+  space: SpaceTable
 }
 
 export type Database = Kysely<DatabaseTables>
@@ -73,3 +74,8 @@ export interface PetTable {
 export type Pet = Selectable<PetTable>
 export type NewPet = Insertable<PetTable>
 export type PetUpdate = Updateable<PetTable>
+
+export interface SpaceTable {
+  uuid: Generated<string>
+  name: string
+}
