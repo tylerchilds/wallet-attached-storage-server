@@ -3,13 +3,27 @@ import SpaceRepository from '../../../database/src/space-repository.ts'
 import { CreateSpaceRequest } from '../api.zod.ts'
 import { z } from 'zod'
 
+/**
+ * build a route to get all spaces from a space repository
+ * representing as a collection of space items
+ * @param repo - the space repository to query
+ * @returns - hono handler
+ */
 export const GET = (repo: SpaceRepository) => async (c: Context, next: Next) => {
   const spacesArray = await repo.toArray()
   return c.json({
+    name: 'Spaces',
     items: spacesArray,
+    totalItems: spacesArray.length,
+    type: ['Collection'],
   })
 }
 
+/**
+ * build a route that handles requests to create a space in a space repository
+ * @param repo - the space repository to query/update
+ * @returns - hono handler
+ */
 export const POST = (repo: SpaceRepository) => async (c: Context, next: Next) => {
   // request body is optional
   const bodyText = await c.req.text().then(t => t.trim())

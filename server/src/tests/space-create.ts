@@ -3,7 +3,13 @@ import { Ed25519Signer } from "@did.coop/did-key-ed25519"
 import { createHttpSignatureAuthorization } from "authorization-signature"
 import { GetSpaceResponse } from '../api.zod.ts'
 
-export const test: ITestModule = async function (t, options: ITestOptions) {
+/*
+Note! this is not a conventional nodejs test runner file.
+It exports a function that is meant to ba called by other test files.
+It has tests that can be composed into other test suites.
+*/
+
+const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
 
   t.test('can GET /spaces/', async function () {
     const { createRequest } = options
@@ -170,4 +176,4 @@ export const test: ITestModule = async function (t, options: ITestOptions) {
   })
 }
 
-export default test
+export default testSpaceCreate
