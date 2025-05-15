@@ -16,14 +16,12 @@ import { collect } from "streaming-iterables"
  * Hono instance encapsulating HTTP routing for Wallet Attached Storage Server
  */
 export class ServerHono extends Hono {
-  #data: Database
   constructor(data: Database) {
     super()
-    this.#data = data
-    this.#configureRoutes(this)
+    ServerHono.configureRoutes(this, data)
   }
-  #configureRoutes(hono: Hono) {
-    const spaces = new SpaceRepository(this.#data)
+  static configureRoutes(hono: Hono, data: Database) {
+    const spaces = new SpaceRepository(data)
 
     hono.get('/', async c => {
       return Response.json({
@@ -52,7 +50,7 @@ export class ServerHono extends Hono {
       if (!(space)) {
         return next()
       }
-      const resources = new ResourceRepository(this.#data)
+      const resources = new ResourceRepository(data)
       const representations = await collect(resources.iterateSpaceNamedRepresentations({
         space,
         name,
@@ -81,7 +79,7 @@ export class ServerHono extends Hono {
       if (!(space)) {
         return next()
       }
-      const resources = new ResourceRepository(this.#data)
+      const resources = new ResourceRepository(data)
       const representation = await c.req.blob()
       await resources.putSpaceNamedResource({
         space,

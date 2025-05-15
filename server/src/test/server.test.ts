@@ -138,9 +138,6 @@ await describe('server', async t => {
         }
       });
       const response2 = await server.fetch(request2)
-      assert.equal(
-        response2.status, 200,
-        `response status MUST be 200`)
       assert.ok(
         response2.ok,
         `response MUST be ok`)

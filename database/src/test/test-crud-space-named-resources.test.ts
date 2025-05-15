@@ -38,9 +38,9 @@ describe('CRUD Space Named Resources', async () => {
     }))
     assert.equal(representations.length, 1)
     const [representation] = representations
-    assert.equal(representation.type, representation1.type)
+    assert.equal(representation.blob.type, representation1.type)
     assert.deepEqual(
-      await representation.arrayBuffer(),
+      await representation.blob.arrayBuffer(),
       await representation1.arrayBuffer())
   });
 })

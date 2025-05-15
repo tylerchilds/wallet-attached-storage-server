@@ -9,10 +9,9 @@ COPY database/package.json ./database/package.json
 COPY nodejs/package.json ./nodejs/package.json
 COPY server/package.json ./server/package.json
 COPY examples/hono-node-server/package.json ./examples/hono-node-server/package.json
-RUN npm ci --no-audit --no-progress
+RUN npm ci --no-audit
 COPY . .
 RUN npm run --if-present build
-RUN ls -la .
 
 # Stage 2: Runtime
 FROM node:24-slim
