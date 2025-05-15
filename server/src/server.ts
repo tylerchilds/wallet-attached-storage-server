@@ -42,19 +42,21 @@ export class ServerHono extends Hono {
     hono.get('/spaces/', getSpacesIndex(spaces))
     hono.post('/spaces/', postSpacesIndex(spaces))
     hono.get('/space/:uuid', getSpaceByUuid(spaces))
-    hono.get('/space/:space/:name{.+}', async c => {
-      const space = c.req.param('space')
-      const name = c.req.param('name')
+
+    const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
+    hono.get('/space/:spaceWithName{.+}', async (c,next) => {
+      const spaceWithName = c.req.param('spaceWithName')
+      const match = spaceWithName.match(patternOfSpaceSlashName)
+      const space = match?.groups?.space
+      const name = match?.groups?.name ?? ''
+      if (!(space)) {
+        return next()
+      }
       const resources = new ResourceRepository(this.#data)
-      console.debug('querying for representations', {
-        space,
-        name,
-      })
       const representations = await collect(resources.iterateSpaceNamedRepresentations({
         space,
         name,
       }))
-      console.debug('representations', representations)
       if (representations.length === 0) {
         return c.notFound()
       }
@@ -71,14 +73,19 @@ export class ServerHono extends Hono {
         }
       })
     })
-    hono.put('/space/:space/:name{.+}', async c => {
-      const space = c.req.param('space')
-      const name = c.req.param('name')
+    hono.put('/space/:spaceWithName{.+}', async (c,next) => {
+      const spaceWithName = c.req.param('spaceWithName')
+      const match = spaceWithName.match(patternOfSpaceSlashName)
+      const space = match?.groups?.space
+      const name = match?.groups?.name
+      if (!(space)) {
+        return next()
+      }
       const resources = new ResourceRepository(this.#data)
       const representation = await c.req.blob()
       await resources.putSpaceNamedResource({
         space,
-        name,
+        name: name ?? '', 
         representation,
       })
       return c.newResponse(null, 201)
