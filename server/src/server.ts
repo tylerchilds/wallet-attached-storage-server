@@ -9,6 +9,8 @@ import { CreateSpaceRequest } from "./api.zod.ts"
 import { GET as getSpacesIndex } from './routes/spaces._index.ts'
 import { POST as postSpacesIndex } from './routes/spaces._index.ts'
 import { GET as getSpaceByUuid } from './routes/space.$uuid.ts'
+import ResourceRepository from "../../database/src/resource-repository.ts"
+import { collect } from "streaming-iterables"
 
 /**
  * Hono instance encapsulating HTTP routing for Wallet Attached Storage Server
@@ -40,6 +42,47 @@ export class ServerHono extends Hono {
     hono.get('/spaces/', getSpacesIndex(spaces))
     hono.post('/spaces/', postSpacesIndex(spaces))
     hono.get('/space/:uuid', getSpaceByUuid(spaces))
+    hono.get('/space/:space/:name{.+}', async c => {
+      const space = c.req.param('space')
+      const name = c.req.param('name')
+      const resources = new ResourceRepository(this.#data)
+      console.debug('querying for representations', {
+        space,
+        name,
+      })
+      const representations = await collect(resources.iterateSpaceNamedRepresentations({
+        space,
+        name,
+      }))
+      console.debug('representations', representations)
+      if (representations.length === 0) {
+        return c.notFound()
+      }
+      if (representations.length > 1) {
+        console.warn('Multiple representations found for space name', {
+          space,
+          name,
+        })
+      }
+      const [representation] = representations
+      return c.newResponse(await representation.blob.bytes(), {
+        headers: {
+          "Content-Type": representation.blob.type,
+        }
+      })
+    })
+    hono.put('/space/:space/:name{.+}', async c => {
+      const space = c.req.param('space')
+      const name = c.req.param('name')
+      const resources = new ResourceRepository(this.#data)
+      const representation = await c.req.blob()
+      await resources.putSpaceNamedResource({
+        space,
+        name,
+        representation,
+      })
+      return c.newResponse(null, 201)
+    })
   }
 }
 

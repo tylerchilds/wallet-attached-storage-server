@@ -91,6 +91,8 @@ await describe('server', async t => {
     const locationHeader = response.headers.get('Location')
     assert.ok(locationHeader, `response to POST /spaces/ MUST have a Location header`)
 
+    const urlToCreatedSpace = new URL(locationHeader, request.url)
+
     // The response to POST /spaces/ should link to the resource
     // representing the space.
     // This link should be in the response Location header.
@@ -119,5 +121,47 @@ await describe('server', async t => {
             `response2BodyObject.${key} MUST match spaceToCreate.${key}`)
         }
       })
+
+    await t.test(`PUT ${locationHeader}/foo`, async t => {
+      const objectToPutFoo = {
+        foo: 'bar',
+        uuid: crypto.randomUUID(),
+      }
+      const blobToPutFoo = new Blob(
+        [JSON.stringify(objectToPutFoo)],
+        { type: 'application/json' })
+      const request2 = new Request(new URL(`${locationHeader}/foo`, request.url), {
+        method: 'PUT',
+        body: blobToPutFoo,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      const response2 = await server.fetch(request2)
+      assert.equal(
+        response2.status, 200,
+        `response status MUST be 200`)
+      assert.ok(
+        response2.ok,
+        `response MUST be ok`)
+
+      // PUT worked.
+      // Now let's validate that it persisted
+      // and can be retrieved via GET
+      const requestToGetFoo = new Request(request2.url)
+      const responseToGetFoo = await server.fetch(requestToGetFoo)
+      assert.equal(
+        responseToGetFoo.status, 200,
+        `responseToGetFoo status MUST be 200`)
+      assert.equal(
+        responseToGetFoo.headers.get('Content-Type'),
+        blobToPutFoo.type,
+        `content-type from GET foo is same as that from PUT foo`
+      )
+      const objectFromGetFoo = await responseToGetFoo.json()
+      assert.equal(objectFromGetFoo.uuid, objectToPutFoo.uuid)
+    })
   })
+
+  await test('PUT /spaces')
 })

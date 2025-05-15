@@ -7,7 +7,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 	// For more info, see: https://kysely.dev/docs/migrations
 	await db.schema
 		.createTable('space')
-		.addColumn('id', 'uuid', (col) => col.primaryKey())
+		.addColumn('uuid', 'uuid', (col) => col.primaryKey())
 		.addColumn('name', 'text')
 		.addColumn('controller', 'text')
 		.execute()

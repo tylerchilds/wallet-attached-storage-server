@@ -1,6 +1,7 @@
 import Sqlite3Database from "better-sqlite3"
 import { Kysely, SqliteDialect } from "kysely"
 import type { Database } from "../types"
+import { SerializePlugin } from 'kysely-plugin-serialize'
 
 export function parseSqliteDatabaseUrl(dburl: string) {
   const url = new URL(dburl)
@@ -22,7 +23,10 @@ export function createDatabaseFromSqlite3Url(dburl: string): Database {
   const database: Database = new Kysely({
     dialect: new SqliteDialect({
       database: new Sqlite3Database(pathname),
-    })
+    }),
+    plugins: [
+      new SerializePlugin(),
+    ]
   })
   return database
 }

@@ -12,7 +12,7 @@ const databaseUrlPattern = /^(?<scheme>[^:]+:).*/
 /**
  * If not DATABASE_URL is set, use this default to sqlite3 with this database file.
  */
-const defaultSqliteDatabaseUrl = new URL('../var/storage.sqlite3', import.meta.url)
+const defaultSqliteDatabaseUrl = new URL('../var/wallet-attached-storage-server.dev.sqlite3', import.meta.url)
 
 /**
  * Get Kysely dialect configuratio based on DATABASE_URL environment variable.

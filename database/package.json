@@ -9,7 +9,9 @@
   "license": "UNLICENSED",
   "description": "",
   "dependencies": {
-    "kysely": "^0.28.2"
+    "kysely": "^0.28.2",
+    "kysely-plugin-serialize": "^0.8.2",
+    "streaming-iterables": "^8.0.1"
   },
   "engines": {},
   "exports": {

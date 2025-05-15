@@ -11,7 +11,11 @@ import type {
 export interface DatabaseTables {
   person: PersonTable
   pet: PetTable
+  blob: BlobTable
+  resource: ResourceTable
+  resourceRepresentation: ResourceRepresentationTable
   space: SpaceTable
+  spaceNamedResource: SpaceNamedResourceTable
 }
 
 export type Database = Kysely<DatabaseTables>
@@ -91,4 +95,38 @@ export interface ISpace {
   controller: string | null
   uuid: string
   name: string | null
+}
+
+// Resources
+
+export interface ResourceTable {
+  uuid: Generated<string>
+  controller: string | null
+}
+
+export interface IResource {
+  uuid: string
+}
+
+// Representation
+
+export interface BlobTable {
+  uuid: Generated<string>
+  type: string
+  bytes: Uint8Array
+}
+
+export interface ResourceRepresentationTable {
+  resourceId: string
+  representationId: string
+  createdAt: Generated<Date>
+}
+
+// Space Names
+// within a space. resources can be named
+
+export interface SpaceNamedResourceTable {
+  spaceId: string
+  name: string
+  resourceId: string
 }
