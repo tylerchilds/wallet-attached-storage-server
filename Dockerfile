@@ -25,6 +25,4 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/examples ./examples
 COPY --from=builder /app/package-lock.json ./
 ENV NODE_ENV=production
-ENV PORT=8080
-EXPOSE 8080
 CMD ["npm", "start"]
