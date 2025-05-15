@@ -26,6 +26,6 @@
   "homepage": "https://github.com/did-coop/wallet-attached-storage-server#readme",
   "description": "",
   "engines": {
-    "node": "24.x"
+    "node": ">=23.6.0"
   }
 }
