@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch ./scripts/start.ts",
+    "dev": "dotenvx run -f .env.dev -- node --watch ./scripts/start.ts",
     "start": "node ./scripts/start.ts",
     "test": "node --test"
   },
@@ -21,5 +21,8 @@
   },
   "engines": {
     "node": ">=23.6.0"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "^1.44.0"
   }
 }

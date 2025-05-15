@@ -5,12 +5,13 @@ import type { Database } from 'wallet-attached-storage-database/types'
 import { createDatabaseFromSqlite3Url } from 'wallet-attached-storage-database/sqlite3'
 import WAS from 'wallet-attached-storage-server'
 import { initializeDatabaseSchema } from '../../database/src/schema.ts'
+import { parseSqliteDatabaseUrl } from '../../database/src/sqlite3/database-url-sqlite3.ts'
+import * as path from 'node:path'
 
 // store data in-memory
 const data = createDatabaseFromEnv({
   DATABASE_URL: process.env.DATABASE_URL,
 })
-data
 await initializeDatabaseSchema(data)
 
 const { fetch } = new WAS.Server(data)
@@ -30,20 +31,26 @@ function createDatabaseFromEnv(env: {
   DATABASE_URL?: unknown
 }) {
   if (env.DATABASE_URL) {
+    console.debug('creating database from DATABASE_URL')
     const database = createDatabaseFromSqlite3Url(env.DATABASE_URL?.toString())
+    const parsedUrl = parseSqliteDatabaseUrl(env.DATABASE_URL?.toString())
+    const relativeDatabasePath = path.relative(process.cwd(), parsedUrl.pathname)
+    console.debug('database pathname is', relativeDatabasePath)
     if (database) {
       return database
     }
   }
   // if no DATABASE_URL is provided, create an in-memory database
-  return createInMemoryDatabase()
+  const inMemoryDatabase = createInMemoryDatabase()
+  console.debug('using in-memory database')
+  return inMemoryDatabase
 }
 
 function createInMemoryDatabase() {
   const data: Database = new Kysely({
     dialect: new SqliteDialect({
       database() {
-        return new Sqlite3Database(':memory')
+        return new Sqlite3Database(':memory:')
       }
     })
   })
