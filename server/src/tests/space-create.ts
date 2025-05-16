@@ -75,16 +75,19 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
       method: 'POST',
       body: null,
       headers: {
-        Authorization: await createHttpSignatureAuthorization({
+        authorization: await createHttpSignatureAuthorization({
           signer: key,
           url: new URL('/spaces/', 'http://example.example'),
           method: 'POST',
           headers: {},
           includeHeaders: [
             '(key-id)',
+            '(created)',
+            '(expires)',
             '(request-target)',
           ],
           created: new Date,
+          expires: new Date(Date.now() + 30 * 1000),
         })
       }
     })
@@ -128,10 +131,14 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
           method: 'POST',
           headers: {},
           includeHeaders: [
+            'host',
+            '(expires)',
+            '(created)',
             '(key-id)',
             '(request-target)',
           ],
           created: new Date,
+          expires: new Date(Date.now() + 30 * 1000),
         })
       }
     })
@@ -154,21 +161,21 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
       It should also have saved the controller.
       Let's verify that the controller is set correctly.
       */
-     {
-      // fetch the space with a GET request
-      const requestToGetSpace = createRequest(locationHeader)
-      const responseToGetSpace = await server.fetch(requestToGetSpace)
+      {
+        // fetch the space with a GET request
+        const requestToGetSpace = createRequest(locationHeader)
+        const responseToGetSpace = await server.fetch(requestToGetSpace)
 
-      // should the status be 200 or 401?
-      // @todo: I think it should be 4xx because the space controller is set and the space is not public,
-      //   and the request does not include proof of authorization to GET.
-      //   It should maybe respond with a WWW-Authenticate header indicating the auth profile to use.
-      options.assert.equal(responseToGetSpace.status, 200, `response status to GET /spaces/ MUST be 200`)
-      const spaceFromGetSpace = GetSpaceResponse.parse(await responseToGetSpace.json())
-      // expect fetched space.controller to match the controller we originally set
-      options.assert.equal(spaceFromGetSpace.controller, spaceToCreate.controller,
-        `space.controller from GET /spaces/ MUST match space.controller from POST /spaces/`)
-     }
+        // should the status be 200 or 401?
+        // @todo: I think it should be 4xx because the space controller is set and the space is not public,
+        //   and the request does not include proof of authorization to GET.
+        //   It should maybe respond with a WWW-Authenticate header indicating the auth profile to use.
+        options.assert.equal(responseToGetSpace.status, 200, `response status to GET /spaces/ MUST be 200`)
+        const spaceFromGetSpace = GetSpaceResponse.parse(await responseToGetSpace.json())
+        // expect fetched space.controller to match the controller we originally set
+        options.assert.equal(spaceFromGetSpace.controller, spaceToCreate.controller,
+          `space.controller from GET /spaces/ MUST match space.controller from POST /spaces/`)
+      }
 
     } finally {
       server.close()
