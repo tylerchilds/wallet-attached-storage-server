@@ -131,7 +131,6 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
           method: 'POST',
           headers: {},
           includeHeaders: [
-            'host',
             '(expires)',
             '(created)',
             '(key-id)',

@@ -67,7 +67,7 @@ function createDatabaseFromEnv(env: {
 function createInMemoryDatabase() {
   const data: Database = new Kysely({
     dialect: new SqliteDialect({
-      database() {
+      async database() {
         return new Sqlite3Database(':memory:')
       }
     })

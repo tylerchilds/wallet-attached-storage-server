@@ -5,6 +5,7 @@ import * as wasdb from 'wallet-attached-storage-database'
 import assert from 'assert'
 import { Ed25519Signer } from '@did.coop/did-key-ed25519'
 import { createHttpSignatureAuthorization } from 'authorization-signature'
+import MIMEType from "whatwg-mimetype"
 
 // create a database suitable for constructing a testable Server(database)
 async function createTestDatabase() {
@@ -66,6 +67,7 @@ await describe('server', async t => {
     })
   })
 
+  let createdSpaceHref: string | null
   await test('POST /spaces/', async t => {
     // this key will represents the client session.
     // it will be the space controller
@@ -92,11 +94,14 @@ await describe('server', async t => {
       response.ok,
       `response to POST /spaces/ MUST be ok`)
 
-    const locationHeader = response.headers.get('Location')
-    assert.ok(locationHeader, `response to POST /spaces/ MUST have a Location header`)
+    const spaceHrefFromResponseLocation = response.headers.get('Location')
+    createdSpaceHref = spaceHrefFromResponseLocation
+    assert.ok(spaceHrefFromResponseLocation, `response to POST /spaces/ MUST have a Location header`)
 
-    const urlToCreatedSpace = new URL(locationHeader, request.url)
+    const urlToCreatedSpace = new URL(spaceHrefFromResponseLocation, request.url)
 
+
+    
     // The response to POST /spaces/ should link to the resource
     // representing the space.
     // This link should be in the response Location header.
@@ -105,7 +110,7 @@ await describe('server', async t => {
     await t.test(
       'GET link from response Location header', async t => {
         // use request2 name to avoid colliding with earlier 'request'
-        const request2 = new Request(new URL(locationHeader, request.url))
+        const request2 = new Request(new URL(spaceHrefFromResponseLocation, request.url))
         const response2 = await server.fetch(request2)
         // @todo: maybe this should be 4xx because
         // the space has a controller
@@ -126,7 +131,7 @@ await describe('server', async t => {
         }
       })
 
-    await t.test(`PUT ${locationHeader}/foo`, async t => {
+    await t.test(`PUT ${spaceHrefFromResponseLocation}/foo`, async t => {
       const objectToPutFoo = {
         foo: 'bar',
         uuid: crypto.randomUUID(),
@@ -134,7 +139,7 @@ await describe('server', async t => {
       const blobToPutFoo = new Blob(
         [JSON.stringify(objectToPutFoo)],
         { type: 'application/json' })
-      const request2 = new Request(new URL(`${locationHeader}/foo`, request.url), {
+      const request2 = new Request(new URL(`${spaceHrefFromResponseLocation}/foo`, request.url), {
         method: 'PUT',
         body: blobToPutFoo,
         headers: {
@@ -162,7 +167,35 @@ await describe('server', async t => {
       const objectFromGetFoo = await responseToGetFoo.json()
       assert.equal(objectFromGetFoo.uuid, objectToPutFoo.uuid)
     })
-  })
 
-  await test('PUT /spaces')
+    // all of these urls should be fair game to PUT to to put a name within the name space
+    for (const href of [
+      `${spaceHrefFromResponseLocation}/`,
+      `${spaceHrefFromResponseLocation}/foo/`,
+      `${spaceHrefFromResponseLocation}/dir/`,
+      `${spaceHrefFromResponseLocation}/dir/bar`,
+      `${spaceHrefFromResponseLocation}/dir/dir/`,
+      `${spaceHrefFromResponseLocation}/dir/dir/dir/baz`,
+      `${spaceHrefFromResponseLocation}/dir/dir/dir/baz/whois.vp`,
+      `${spaceHrefFromResponseLocation}/dir/dir/dir/baz/whois.vp.json`,
+    ]) {
+      await t.test(`PUT ${href}`, async t => {
+        const response = await server.fetch(new Request(new URL(href, request.url), {
+          method: 'PUT',
+          body: new Blob(['hello world'], { type: 'text/plain' })
+        }))
+        assert.equal(
+          response.ok, true,
+          `response to PUT ${href} must be ok`
+        )
+
+        // it might have suffix e.g. ';charset=UTF-8' so be flexible and parse it
+        const responseContentTypeMime = new MIMEType(response.headers.get('Content-Type'))
+        assert.equal(responseContentTypeMime.essence, 'text/plain', `response to PUT ${href} must have content-type text/plain`)
+      })
+    }
+
+})
+
+await test('PUT /spaces')
 })
