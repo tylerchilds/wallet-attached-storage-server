@@ -20,12 +20,13 @@ const { fetch } = new WAS.Server(data, {
       if (process.env.CORS_ALLOW_ALL_ORIGINS) {
         return origin ?? null
       }
-      if (process.env.CORS_ALLOW_ORIGIN) {
-        const allowedOrigins = JSON.parse(process.env.CORS_ALLOW_ORIGIN)
+      const allowedOriginsEnv = process.env.CORS_ALLOWED_ORIGINS
+      if (allowedOriginsEnv) {
+        const allowedOrigins = JSON.parse(allowedOriginsEnv)
         if (allowedOrigins.includes(origin)) {
           return origin ?? null
         } else {
-          console.warn('origin is not in CORS_ALLOWED_ORIGIN', origin)
+          console.warn('origin is not in CORS_ALLOWED_ORIGINS', origin)
         }
       }
       return null
