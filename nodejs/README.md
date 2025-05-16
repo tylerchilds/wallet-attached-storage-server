@@ -40,6 +40,28 @@ By default
 
 ### Environment Variables
 
+#### `CORS_ALLOWED_ORIGINS`
+
+Origins that will be allowed via Access-Control-Allow-Origin response headers
+
+Default: unset
+
+Constraints
+* value SHOULD be a JSON Array of Origin strings
+
+Example: `["https://sillyz.computer"]`
+
+#### `CORS_ALLOW_ALL_ORIGINS`
+
+If truthy, all origins will be allowed via CORS Access-Control-Allow-Origin response headers
+
+Default: unset
+
+Constraints
+* If truthy, will be interpreted as `true`
+
+Example: `true`
+
 #### `DATABASE_URL`
 
 URL to connect to with [wallet-attached-storage-database](../database).
@@ -56,3 +78,15 @@ Suggestions:
 * `0`: listen on any open port
 * `8080`: a port that most users are allowed to listen on
 * `80` is a common HTTP port, but may require special privileges to use on your machine
+
+## FAQ
+
+### Why are my requests to wallet-attached-storage-server from a web browser failing with CORS errors?
+
+Add the `Origin` that those requests are coming from to the JSON Array that is the value of `CORS_ALLOWED_ORIGINS`.
+
+```
+CORS_ALLOWED_ORIGINS='["http://localhost:8081"]' npm run dev
+```
+
+You may also set `CORS_ALLOW_ALL_ORIGINS` to allow all origins to make CORS requests, but prefer to explicitly allowlist origins via `CORS_ALLOWED_ORIGINS`.
