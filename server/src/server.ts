@@ -1,27 +1,36 @@
 import type { Fetchable } from "./types"
 import type { Database } from 'wallet-attached-storage-database/types'
 import { Hono } from 'hono'
-import type { Context } from 'hono'
 import SpaceRepository from "../../database/src/space-repository.ts"
-import { zValidator } from '@hono/zod-validator'
-import { z } from 'zod'
-import { CreateSpaceRequest } from "./api.zod.ts"
 import { GET as getSpacesIndex } from './routes/spaces._index.ts'
 import { POST as postSpacesIndex } from './routes/spaces._index.ts'
 import { GET as getSpaceByUuid } from './routes/space.$uuid.ts'
 import ResourceRepository from "../../database/src/resource-repository.ts"
 import { collect } from "streaming-iterables"
+import { cors } from 'hono/cors'
+
+interface IServerOptions {
+  cors?: {
+    origin?: (origin: string | undefined) => string | null
+  }
+}
 
 /**
  * Hono instance encapsulating HTTP routing for Wallet Attached Storage Server
  */
 export class ServerHono extends Hono {
-  constructor(data: Database) {
+  constructor(data: Database, options?: IServerOptions) {
     super()
-    ServerHono.configureRoutes(this, data)
+    ServerHono.configureRoutes(this, data, options)
   }
-  static configureRoutes(hono: Hono, data: Database) {
+  static configureRoutes(hono: Hono, data: Database, options?: IServerOptions) {
     const spaces = new SpaceRepository(data)
+
+    hono.use('*', cors({
+      origin(origin, c) {
+        return options?.cors?.origin?.(origin) ?? null
+      },
+    }))
 
     hono.get('/', async c => {
       return Response.json({
@@ -42,7 +51,7 @@ export class ServerHono extends Hono {
     hono.get('/space/:uuid', getSpaceByUuid(spaces))
 
     const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
-    hono.get('/space/:spaceWithName{.+}', async (c,next) => {
+    hono.get('/space/:spaceWithName{.+}', async (c, next) => {
       const spaceWithName = c.req.param('spaceWithName')
       const match = spaceWithName.match(patternOfSpaceSlashName)
       const space = match?.groups?.space
@@ -71,7 +80,7 @@ export class ServerHono extends Hono {
         }
       })
     })
-    hono.put('/space/:spaceWithName{.+}', async (c,next) => {
+    hono.put('/space/:spaceWithName{.+}', async (c, next) => {
       const spaceWithName = c.req.param('spaceWithName')
       const match = spaceWithName.match(patternOfSpaceSlashName)
       const space = match?.groups?.space
@@ -83,7 +92,7 @@ export class ServerHono extends Hono {
       const representation = await c.req.blob()
       await resources.putSpaceNamedResource({
         space,
-        name: name ?? '', 
+        name: name ?? '',
         representation,
       })
       return c.newResponse(null, 201)
@@ -98,10 +107,11 @@ export class Server implements Fetchable {
   #data: Database
   #hono: Hono
   constructor(
-    data: Database
+    data: Database,
+    options?: IServerOptions
   ) {
     this.#data = data
-    this.#hono = new ServerHono(this.#data)
+    this.#hono = new ServerHono(this.#data, options)
   }
   fetch = async (request: Request) => {
     try {

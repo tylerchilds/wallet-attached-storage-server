@@ -14,7 +14,24 @@ const data = createDatabaseFromEnv({
 })
 await initializeDatabaseSchema(data)
 
-const { fetch } = new WAS.Server(data)
+const { fetch } = new WAS.Server(data, {
+  cors: {
+    origin(origin: string | undefined) {
+      if (process.env.CORS_ALLOW_ALL_ORIGINS) {
+        return origin ?? null
+      }
+      if (process.env.CORS_ALLOW_ORIGIN) {
+        const allowedOrigins = JSON.parse(process.env.CORS_ALLOW_ORIGIN)
+        if (allowedOrigins.includes(origin)) {
+          return origin ?? null
+        } else {
+          console.warn('origin is not in CORS_ALLOWED_ORIGIN', origin)
+        }
+      }
+      return null
+    }
+  }
+})
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0
 const server = serve({
   fetch,
