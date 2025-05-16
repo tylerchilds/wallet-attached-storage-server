@@ -42,16 +42,20 @@ await describe('server', async t => {
       const request = new Request(requestUrl, {
         method: requestMethod,
         headers: {
-          Authorization: await createHttpSignatureAuthorization({
+          authorization: await createHttpSignatureAuthorization({
             signer: key,
             url: requestUrl,
             method: requestMethod,
             headers: {},
             includeHeaders: [
+              'host',
+              '(created)',
+              '(expires)',
               '(key-id)',
               '(request-target)',
             ],
             created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
           })
         }
       })

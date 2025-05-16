@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { HttpSignatureAuthorization } from 'authorization-signature'
 import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
 import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
+import { createUuidV5 } from "../lib/uuid.ts"
+import canonicalize from "canonicalize"
 
 /**
  * build a route to get all spaces from a space repository
@@ -30,9 +32,8 @@ export const GET = (repo: SpaceRepository) => async (c: Context, next: Next) => 
 export const POST = (repo: SpaceRepository) => async (c: Context, next: Next) => {
   // check authorization
   let authenticatedClientDid: string | undefined
-  {
-    const authorization = c.req.raw.headers.get('authorization')
-    console.debug('POST /spaces/ authorization', authorization)
+  if (c.req.raw.headers.get('authorization')){
+    const authorizationHeader = c.req.raw.headers.get('authorization')
     const verified = await HttpSignatureAuthorization.verified(c.req.raw, {
       async getVerifier(keyId) {
         const { verifier } = await getVerifierForKeyId(keyId)
@@ -44,27 +45,35 @@ export const POST = (repo: SpaceRepository) => async (c: Context, next: Next) =>
   }
 
   // request body is optional
-  const bodyText = await c.req.text().then(t => t.trim())
-  let requestBodyObject
-  if ( ! bodyText) {
+  const bodyText = await c.req.text()
+  let initialSpace
+  if (!bodyText.trim()) {
     // no request body, no requestBodyObject
-    requestBodyObject = {
+    initialSpace = {
       controller: authenticatedClientDid,
-      uuid: crypto.randomUUID(),
     }
   } else {
-    requestBodyObject = JSON.parse(bodyText)
+    initialSpace = JSON.parse(bodyText)
   }
 
   let createSpaceRequest: z.TypeOf<typeof CreateSpaceRequest>
   try {
-    createSpaceRequest = CreateSpaceRequest.parse(requestBodyObject)
+    createSpaceRequest = CreateSpaceRequest.parse(initialSpace)
   } catch (error) {
     console.warn('error parsing request body', error)
     return c.json(error, 400)
   }
-  const created = await repo.create(createSpaceRequest)
-  const pathnameOfSpace = `/space/${createSpaceRequest.uuid}`
+
+  const initialSpaceUuid = createSpaceRequest.uuid ?? createUuidV5({
+    namespace: Uint8Array.from([]),
+    name: new TextEncoder().encode(canonicalize(initialSpace)),
+  })
+
+  const created = await repo.create({
+    ...createSpaceRequest,
+    uuid: initialSpaceUuid,
+  })
+  const pathnameOfSpace = `/space/${initialSpaceUuid}`
   return c.newResponse(null, 201, {
     'Location': pathnameOfSpace,
   })

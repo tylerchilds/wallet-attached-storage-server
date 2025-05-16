@@ -4,7 +4,7 @@ import { z } from 'zod'
 export const CreateSpaceRequest = z.object({
   controller: z.string().optional(),
   name: z.string().optional(),
-  uuid: z.string().optional().default(() => crypto.randomUUID()),
+  uuid: z.string().optional(),
 })
 
 // body of response to POST /spaces/
