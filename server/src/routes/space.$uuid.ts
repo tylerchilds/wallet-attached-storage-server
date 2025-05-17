@@ -50,6 +50,30 @@ export function GET(
   }
 }
 
+
+/**
+ * build a route to get a space by uuid from a space repository
+ * @param spaces - the space repository to query
+ * @returns - hono handler
+ */
+export function PUT(
+  spaces: Pick<SpaceRepository, 'getById'|'create'|'put'>,
+) {
+  // hono request handler
+  // use like
+  //   (new Hono).get('/spaces/:uuid', GET(spaces))
+  return async (c: Context<any, '/:uuid'>) => {
+    const uuid = c.req.param('uuid')
+    const requestBodyObject = await c.req.json()
+    const spaceToCreate = {
+      ...requestBodyObject,
+      uuid,
+    }
+    await spaces.put(spaceToCreate)
+    return c.newResponse(null, 204)
+  }
+}
+
 class AuthorizationMissing extends Error { }
 class NotAuthorized extends Error {}
 

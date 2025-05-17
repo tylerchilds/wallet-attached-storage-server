@@ -5,6 +5,7 @@ import SpaceRepository from "../../database/src/space-repository.ts"
 import { GET as getSpacesIndex } from './routes/spaces._index.ts'
 import { POST as postSpacesIndex } from './routes/spaces._index.ts'
 import { GET as getSpaceByUuid } from './routes/space.$uuid.ts'
+import { PUT as putSpaceByUuid } from './routes/space.$uuid.ts'
 import ResourceRepository from "../../database/src/resource-repository.ts"
 import { collect } from "streaming-iterables"
 import { cors } from 'hono/cors'
@@ -49,6 +50,7 @@ export class ServerHono extends Hono {
     hono.get('/spaces/', getSpacesIndex(spaces))
     hono.post('/spaces/', postSpacesIndex(spaces))
     hono.get('/space/:uuid', getSpaceByUuid(spaces))
+    hono.put('/space/:uuid', putSpaceByUuid(spaces))
 
     // GET /space/:uuid/:resourceName{.*}
     // ^ errors from within hono when the resourceName pattern can be an empty string
@@ -61,7 +63,6 @@ export class ServerHono extends Hono {
       if (!(space)) {
         return next()
       }
-      console.debug('get resource in space', space)
       const resources = new ResourceRepository(data)
       const representations = await collect(resources.iterateSpaceNamedRepresentations({
         space,
@@ -71,10 +72,7 @@ export class ServerHono extends Hono {
         return c.notFound()
       }
       if (representations.length > 1) {
-        console.warn('Multiple representations found for space name', {
-          space,
-          name,
-        })
+        console.warn(`found multiple representations for GET /space/${space}/${name}`, representations)
       }
       const [representation] = representations
       return c.newResponse(await representation.blob.bytes(), {
