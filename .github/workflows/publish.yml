@@ -1,0 +1,32 @@
+name: Publish to WAS
+
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: 'Files to upload'
+        required: true
+        default: 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to WAS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Test Local Action
+        id: test-action
+        uses:  gobengo/wallet-attached-storage-action@main
+        with:
+          files: README.md
+
+      - name: Print Resource URL
+        id: output-resource
+        run: echo "${{ steps.test-action.outputs.resource }}"

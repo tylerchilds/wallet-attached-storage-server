@@ -44,8 +44,8 @@ jobs:
         id: npm-ci-test
         run: npm run test
 
-  test-action:
-    name: GitHub Actions Test
+  publish:
+    name: Publish to WAS
     runs-on: ubuntu-latest
 
     steps:
@@ -59,6 +59,6 @@ jobs:
         with:
           files: README.md
 
-      - name: Print Output
-        id: output
-        run: echo "${{ steps.test-action.outputs.time }}"
+      - name: Print Resource URL
+        id: output-resource
+        run: echo "${{ steps.test-action.outputs.resource }}"
