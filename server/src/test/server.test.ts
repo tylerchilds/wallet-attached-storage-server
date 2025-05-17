@@ -49,7 +49,6 @@ await describe('server', async t => {
             method: requestMethod,
             headers: {},
             includeHeaders: [
-              'host',
               '(created)',
               '(expires)',
               '(key-id)',

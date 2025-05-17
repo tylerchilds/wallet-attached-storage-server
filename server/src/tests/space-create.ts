@@ -80,12 +80,7 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
           url: new URL('/spaces/', 'http://example.example'),
           method: 'POST',
           headers: {},
-          includeHeaders: [
-            '(key-id)',
-            '(created)',
-            '(expires)',
-            '(request-target)',
-          ],
+          includeHeaders: ['(key-id)', '(created)', '(expires)', '(request-target)'],
           created: new Date,
           expires: new Date(Date.now() + 30 * 1000),
         })
@@ -125,16 +120,16 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
         { type: 'application/json', }
       ),
       headers: {
-        Authorization: await createHttpSignatureAuthorization({
+        authorization: await createHttpSignatureAuthorization({
           signer: key,
           url: new URL('/spaces/', 'http://example.example'),
           method: 'POST',
           headers: {},
           includeHeaders: [
-            '(expires)',
-            '(created)',
             '(key-id)',
-            '(request-target)',
+            '(created)',
+            '(expires)',
+            '(request-target)'
           ],
           created: new Date,
           expires: new Date(Date.now() + 30 * 1000),

@@ -12,9 +12,9 @@
   "license": "UNLICENSED",
   "description": "",
   "dependencies": {
-    "@did.coop/did-key-ed25519": "^0.0.9",
+    "@did.coop/did-key-ed25519": "github:did-coop/did-key-ed25519",
     "@hono/zod-validator": "^0.5.0",
-    "authorization-signature": "git://github.com/gobengo/authorization-signature.git",
+    "authorization-signature": "github:gobengo/authorization-signature",
     "canonicalize": "^2.1.0",
     "hono": "^4.7.9",
     "streaming-iterables": "^8.0.1",

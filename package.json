@@ -29,6 +29,5 @@
     "node": "23.x"
   },
   "dependencies": {
-    "authorization-signature": "github:gobengo/authorization-signature"
   }
 }

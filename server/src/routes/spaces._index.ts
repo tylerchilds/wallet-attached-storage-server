@@ -7,6 +7,7 @@ import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
 import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
 import { createUuidV5 } from "../lib/uuid.ts"
 import canonicalize from "canonicalize"
+import { HTTPException } from 'hono/http-exception'
 
 /**
  * build a route to get all spaces from a space repository
@@ -32,16 +33,21 @@ export const GET = (repo: SpaceRepository) => async (c: Context, next: Next) => 
 export const POST = (repo: SpaceRepository) => async (c: Context, next: Next) => {
   // check authorization
   let authenticatedClientDid: string | undefined
-  if (c.req.raw.headers.get('authorization')){
-    const authorizationHeader = c.req.raw.headers.get('authorization')
-    const verified = await HttpSignatureAuthorization.verified(c.req.raw, {
-      async getVerifier(keyId) {
-        const { verifier } = await getVerifierForKeyId(keyId)
-        return verifier
-      },
-    })
-    const httpSignatureKeyIdDid = getControllerOfDidKeyVerificationMethod(verified.keyId)
-    authenticatedClientDid = httpSignatureKeyIdDid
+  if (c.req.raw.headers.get('authorization')) {
+    console.debug('POST authorization', c.req.raw.headers.get('authorization'))
+    try {
+      const verified = await HttpSignatureAuthorization.verified(c.req.raw, {
+        async getVerifier(keyId) {
+          const { verifier } = await getVerifierForKeyId(keyId)
+          return verifier
+        },
+      })
+      const httpSignatureKeyIdDid = getControllerOfDidKeyVerificationMethod(verified.keyId)
+      authenticatedClientDid = httpSignatureKeyIdDid
+    } catch (error) {
+      console.warn('error verifying authorization to POST /spaces/', error)
+      throw new HTTPException(401, { message: `Failed to verify authorization`, cause: error })
+    }
   }
 
   // request body is optional
