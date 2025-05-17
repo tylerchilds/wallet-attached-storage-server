@@ -69,12 +69,7 @@ await describe('server', async t => {
 
   let createdSpaceHref: string | null
   await test('POST /spaces/', async t => {
-    // this key will represents the client session.
-    // it will be the space controller
-    const clientKey = await Ed25519Signer.generate()
-
     const spaceToCreate = {
-      controller: clientKey.controller,
       uuid: crypto.randomUUID(),
       name: 'test',
     }
