@@ -7,6 +7,10 @@ on:
         description: 'Files to upload'
         required: true
         default: '_site/*'
+      filesStripPrefix:
+        description: Strip this prefix from the files before PUT to WAS
+        required: false
+        default: '_site/'
 
 permissions:
   contents: read
@@ -39,6 +43,7 @@ jobs:
         uses:  gobengo/wallet-attached-storage-action@main
         with:
           files: "${{ inputs.files }}"
+          filesStripPrefix: "${{ inputs.filesStripPrefix }}"
 
       - name: Print Resource URL
         id: output-resource
