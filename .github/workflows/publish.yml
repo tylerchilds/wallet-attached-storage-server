@@ -6,7 +6,7 @@ on:
       files:
         description: 'Files to upload'
         required: true
-        default: 'README.md'
+        default: '_site/*'
 
 permissions:
   contents: read
@@ -21,11 +21,24 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
-      - name: Test Local Action
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install Dependencies
+        id: npm-ci
+        run: npm ci
+
+      - run: npm run --if-present build:11ty
+
+      - name: Publish ${{ inputs.files }} to WAS
         id: test-action
         uses:  gobengo/wallet-attached-storage-action@main
         with:
-          files: README.md
+          files: "${{ inputs.files }}"
 
       - name: Print Resource URL
         id: output-resource

@@ -10,6 +10,7 @@
   "version": "0.0.0",
   "main": "index.js",
   "scripts": {
+    "build:11ty": "npx @11ty/eleventy",
     "dev": "npm -w nodejs run dev",
     "license-checker": "npx license-checker-rseidelsohn --onlyAllow 'MIT;BSD-3-Clause;Apache-2.0;ISC;BSD-2-Clause;Unlicense'",
     "start": "npm -w nodejs run start",
