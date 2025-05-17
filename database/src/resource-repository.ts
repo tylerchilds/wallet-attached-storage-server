@@ -44,6 +44,8 @@ export default class ResourceRepository implements IRepository<IResource> {
         'spaceNamedResource.name',
         'spaceNamedResource.spaceId as space',
       ])
+      .where('spaceNamedResource.spaceId', '=', query.space)
+      .where('spaceNamedResource.name', '=', query.name)
       .orderBy('resourceRepresentation.createdAt', 'desc')
       .execute()
     yield* map(
