@@ -41,9 +41,9 @@ jobs:
       - name: Publish ${{ inputs.files }} to WAS
         id: test-action
         uses:  gobengo/wallet-attached-storage-action@main
-        with:
-          files: "${{ inputs.files }}"
-          filesStripPrefix: "${{ inputs.filesStripPrefix }}"
+        # with:
+        #   files: "${{ inputs.files }}"
+        #   filesStripPrefix: "${{ inputs.filesStripPrefix }}"
 
       - name: Print Resource URL
         id: output-resource
