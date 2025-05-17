@@ -50,6 +50,8 @@ export class ServerHono extends Hono {
     hono.post('/spaces/', postSpacesIndex(spaces))
     hono.get('/space/:uuid', getSpaceByUuid(spaces))
 
+    // GET /space/:uuid/:resourceName{.*}
+    // ^ errors from within hono when the resourceName pattern can be an empty string
     const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
     hono.get('/space/:spaceWithName{.+}', async (c, next) => {
       const spaceWithName = c.req.param('spaceWithName')
@@ -59,6 +61,7 @@ export class ServerHono extends Hono {
       if (!(space)) {
         return next()
       }
+      console.debug('get resource in space', space)
       const resources = new ResourceRepository(data)
       const representations = await collect(resources.iterateSpaceNamedRepresentations({
         space,
@@ -80,7 +83,10 @@ export class ServerHono extends Hono {
         }
       })
     })
-    hono.put('/space/:spaceWithName{.+}', async (c, next) => {
+
+    // PUT /space/:uuid/:resourceName{.*}
+    // ^ errors from within hono when the resourceName pattern can be an empty string
+    hono.put('/space/:spaceWithName{.+}', async (c,next) => {
       const spaceWithName = c.req.param('spaceWithName')
       const match = spaceWithName.match(patternOfSpaceSlashName)
       const space = match?.groups?.space

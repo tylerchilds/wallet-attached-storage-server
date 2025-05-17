@@ -165,17 +165,38 @@ const testSpaceCreate: ITestModule = async function (t, options: ITestOptions) {
         const requestToGetSpace = createRequest(locationHeader)
         const responseToGetSpace = await server.fetch(requestToGetSpace)
 
-        // should the status be 200 or 401?
-        // @todo: I think it should be 4xx because the space controller is set and the space is not public,
-        //   and the request does not include proof of authorization to GET.
-        //   It should maybe respond with a WWW-Authenticate header indicating the auth profile to use.
-        options.assert.equal(responseToGetSpace.status, 200, `response status to GET /spaces/ MUST be 200`)
-        const spaceFromGetSpace = GetSpaceResponse.parse(await responseToGetSpace.json())
-        // expect fetched space.controller to match the controller we originally set
-        options.assert.equal(spaceFromGetSpace.controller, spaceToCreate.controller,
-          `space.controller from GET /spaces/ MUST match space.controller from POST /spaces/`)
+        // the response status is 401
+        // because the request does not include sufficient authorization to access the space
+        options.assert.equal(responseToGetSpace.status, 401, `response status to GET /spaces/ with no authz MUST be 401`)
       }
 
+      // now verify that a signature from the controller key is sufficient to access the space
+      {
+        const requestToGetSpace = createRequest(locationHeader, {
+          headers: {
+            authorization: await createHttpSignatureAuthorization({
+              signer: key,
+              url: new URL(locationHeader, 'http://example.example'),
+              method: 'GET',
+              headers: {},
+              includeHeaders: [
+                '(expires)',
+                '(created)',
+                '(key-id)',
+                '(request-target)',
+              ],
+              created: new Date,
+              expires: new Date(Date.now() + 30 * 1000),
+            })
+          }
+        })
+        
+        const responseToGetSpace = await server.fetch(requestToGetSpace)
+        options.assert.equal(responseToGetSpace.status, 200, `response status to GET /spaces/ MUST be 200`)
+
+        const spaceFromResponse = await responseToGetSpace.json()
+        options.assert.equal(spaceFromResponse.controller, key.controller, `space controller MUST be the same as the key controller`)
+      }
     } finally {
       server.close()
     }

@@ -1,5 +1,9 @@
 import type { Context } from "hono"
 import type SpaceRepository from "../../../database/src/space-repository.ts"
+import { HttpSignatureAuthorization } from "authorization-signature"
+import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
+import { HTTPException } from 'hono/http-exception'
+import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
 
 /**
  * build a route to get a space by uuid from a space repository
@@ -13,11 +17,70 @@ export function GET(
   // use like
   //   (new Hono).get('/spaces/:uuid', GET(spaces))
   return async (c: Context<any, '/:uuid'>) => {
+    // check if request is authorized
+    {
+      // look up space to see if it has a controller that determines authz.
+      const space = await spaces.getById(c.req.param('uuid'))
+      if (space.controller) {
+        try {
+          await assertRequestAuthorizedBy(c.req.raw, space.controller)
+        } catch (error) {
+          if (error instanceof AuthorizationMissing) {
+            throw new HTTPException(401, {
+              message: 'Authorization is required but missing.',
+              cause: error,
+            })
+          }
+          if (error instanceof NotAuthorized) {
+            throw new HTTPException(401, { cause: error })
+          }
+          throw error
+        }
+      }
+    }
+
     const uuid = c.req.param('uuid')
     const space = await spaces.getById(uuid)
     if (!space) {
-      return c.notFound()
+      // space does not exist
+      // return 401. same as if space does exist but request includes insufficient authorization
+      return c.newResponse(null, 401)
     }
     return c.json(space)
   }
+}
+
+class AuthorizationMissing extends Error { }
+class NotAuthorized extends Error {}
+
+async function assertRequestAuthorizedBy(
+  request: Request,
+  controller: string,
+) {
+  if (!request.headers.get('authorization')) {
+    throw new AuthorizationMissing(`Authorization is required but missing.`)
+  }
+  
+  let authenticatedRequestKeyId: string
+  try {
+    const verified = await HttpSignatureAuthorization.verified(request, {
+      async getVerifier(keyId) {
+        const { verifier } = await getVerifierForKeyId(keyId)
+        return verifier
+      },
+    })
+    authenticatedRequestKeyId = verified.keyId
+  } catch (error) {
+    throw new Error(`Failed to verify HTTP Signature`, {
+      cause: error,
+    })
+  }
+
+  const authenticatedRequestDid = getControllerOfDidKeyVerificationMethod(authenticatedRequestKeyId as `did:key:${string}#${string}`)
+  if (authenticatedRequestDid === controller) {
+    // the request is authorized because it is signed by the controller
+    return
+  }
+
+  throw new NotAuthorized(`Insufficient authorization provided to respond to this request.`)
 }
