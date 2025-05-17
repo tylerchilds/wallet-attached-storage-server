@@ -9,7 +9,7 @@
     "test": "node --test"
   },
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "",
   "dependencies": {
     "@did.coop/did-key-ed25519": "github:did-coop/did-key-ed25519",

@@ -11,6 +11,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "npm -w nodejs run dev",
+    "license-checker": "npx license-checker-rseidelsohn --onlyAllow 'MIT;BSD-3-Clause;Apache-2.0;ISC;BSD-2-Clause;Unlicense'",
     "start": "npm -w nodejs run start",
     "test": "node --test"
   },
@@ -19,7 +20,7 @@
     "url": "git+https://github.com/did-coop/wallet-attached-storage-server.git"
   },
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/did-coop/wallet-attached-storage-server/issues"
   },

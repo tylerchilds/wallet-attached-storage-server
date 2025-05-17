@@ -9,7 +9,7 @@
     "test": "node --test"
   },
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "",
   "dependencies": {
     "@hono/node-server": "^1.14.1",
