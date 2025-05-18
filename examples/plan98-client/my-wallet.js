@@ -13,7 +13,7 @@ const space = storage.space({ signer })
 
 async function main() {
   const spaceObject = {
-    controller: signer.id,
+    controller: signer.controller,
   }
   const spaceObjectBlob = new Blob(
     [JSON.stringify(spaceObject)],
