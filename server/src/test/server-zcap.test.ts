@@ -20,7 +20,8 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
 
   let spaceUuid: string | undefined
 
-  await test('PUT /space/:uuid', async t => {
+  await test('PUT space and then GET with zcap', async t => {
+    const keyForAlice = await Ed25519Signer.generate()
     spaceUuid = crypto.randomUUID()
     const createPutSpaceByUuidRequest = (spaceRepresentation: unknown) => new Request(new URL(`/space/${spaceUuid}`, 'http://example.example'), {
       method: 'PUT',
@@ -29,32 +30,72 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
         'Content-Type': 'application/json',
       },
     })
-    const request = createPutSpaceByUuidRequest({})
+    const spaceToCreate = {
+      controller: keyForAlice.controller
+    }
+    const request = createPutSpaceByUuidRequest(spaceToCreate)
     const response = await server.fetch(request)
     assert.equal(response.status, 204, 'response status to PUT /spaces/ MUST be 204')
 
-    // make a second PUT request to update name
-    const spaceWithName = { name: `name ${crypto.randomUUID()}` }
-    const response2 = await server.fetch(createPutSpaceByUuidRequest(spaceWithName))
-    assert.equal(response2.status, 204, 'response2 status to PUT /spaces/ MUST be 204')
-
-    // now GET it and see if the name update worked
-    {
-      const responseToGetSpace = await server.fetch(new Request(new URL(`/space/${spaceUuid}`, 'http://example.example'), {
-        method: 'GET',
+    await t.test(`GET with signature from space controller`, async t => {
+      const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
+      const requestMethod = 'GET'
+      const responseToGetSpace = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
         headers: {
           'Accept': 'application/json',
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          }),
         },
       }))
       assert.equal(
         responseToGetSpace.status, 200,
         'response status to GET /space/:uuid MUST be 200')
       const spaceFromGet = await responseToGetSpace.json()
-      assert.equal(spaceFromGet.name, spaceWithName.name, `space name from GET MUST match space name from most recent PUT`)
-    }
-  })
+      assert.equal(spaceFromGet.controller, spaceToCreate.controller)
+    })
 
-  await test(`GET space ${spaceUuid}`, async t => {
-    throw new Error('todo')
+     await t.test(`GET with signature over capability-invocation authorized by space controller`, async t => {
+      const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
+      const requestMethod = 'GET'
+      
+      const responseToGetSpace = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        headers: {
+          'Accept': 'application/json',
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          }),
+        },
+      }))
+      assert.equal(
+        responseToGetSpace.status, 200,
+        'response status to GET /space/:uuid MUST be 200')
+      const spaceFromGet = await responseToGetSpace.json()
+      assert.equal(spaceFromGet.controller, spaceToCreate.controller)
+    })
   })
 })
