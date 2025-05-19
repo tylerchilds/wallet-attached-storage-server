@@ -64,6 +64,35 @@ await describe('server', async t => {
         response.status, 200,
         'response status to GET /spaces/ MUST be 200')
     })
+
+    await t.test('with ed25519 http signature capability-invocation', async t => {
+      const key = await Ed25519Signer.generate()
+      const requestUrl = new URL('/spaces/', 'http://example.example')
+      const requestMethod = 'GET'
+      const request = new Request(requestUrl, {
+        method: requestMethod,
+        headers: {
+          authorization: await createHttpSignatureAuthorization({
+            signer: key,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          })
+        }
+      })
+      const response = await server.fetch(request)
+      assert.equal(
+        response.status, 200,
+        'response status to GET /spaces/ MUST be 200')
+    })    
   })
 
   let createdSpaceHref: string | null
