@@ -29,7 +29,6 @@ export class ServerHono extends Hono {
 
     hono.use('*', cors({
       origin(origin, c) {
-        console.debug('cors mw', origin, options?.cors?.origin?.(origin))
         return options?.cors?.origin?.(origin) ?? null
       },
     }))
