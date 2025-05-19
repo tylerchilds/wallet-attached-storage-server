@@ -31,7 +31,8 @@ const { fetch } = new WAS.Server(data, {
       }
       return null
     }
-  }
+  },
+  trustHeaderXForwardedProto: Boolean(process.env.TRUST_HEADER_X_FORWARDED_PROTO),
 })
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0
 const server = serve({

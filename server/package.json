@@ -12,6 +12,7 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "hono-zcap": "github:gobengo/hono-zcap",
     "@did.coop/did-key-ed25519": "github:did-coop/did-key-ed25519",
     "@hono/zod-validator": "^0.5.0",
     "authorization-signature": "github:gobengo/authorization-signature",

@@ -93,22 +93,22 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
         capability: {
           id: `urn:uuid:${crypto.randomUUID()}`,
           controller: keyForBob.controller,
-          invocationTarget: requestUrl.toString(),
+          invocationTarget: urlWithProtocol(requestUrl, 'https:').toString(),
           allowedAction: [requestMethod],
-          parentCapability: `urn:zcap:root:${encodeURIComponent(requestUrl.toString())}`,
+          parentCapability: `urn:zcap:root:${encodeURIComponent(urlWithProtocol(requestUrl, 'https:').toString())}`,
           "@context": ["https://w3id.org/zcap/v1"],
           expires: new Date(Date.now() + 30 * 1000).toISOString(),
         }
       })
       const requestToGetSpace = new Request(requestUrl, {
-        ...await createRequestForCapabilityInvocation(requestUrl, {
-          action: requestMethod,
-          invocationSigner: keyForAlice,
+        ...await createRequestForCapabilityInvocation(urlWithProtocol(requestUrl, 'https:'), {
+          invocationSigner: keyForBob,
           method: requestMethod,
           capability: capabilityForBobToGetResource,
         })
       })
       const responseToGetSpace = await server.fetch(requestToGetSpace)
+      console.debug('responseToGetSpace', requestToGetSpace.url, responseToGetSpace)
       assert.equal(
         responseToGetSpace.status, 200,
         'response status to GET /space/:uuid MUST be 200')
@@ -117,3 +117,9 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
     })
   })
 })
+
+export function urlWithProtocol(url: URL | string, protocol: `${string}:`) {
+  const url2 = new URL(url)
+  url2.protocol = protocol
+  return url2
+}
