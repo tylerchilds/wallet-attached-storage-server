@@ -9,11 +9,13 @@ import { PUT as putSpaceByUuid } from './routes/space.$uuid.ts'
 import ResourceRepository from "../../database/src/resource-repository.ts"
 import { collect } from "streaming-iterables"
 import { cors } from 'hono/cors'
+import { zcapAuthorization } from './lib/hono-zcap.ts'
 
 interface IServerOptions {
   cors?: {
     origin?: (origin: string | undefined) => string | null
-  }
+  },
+  trustHeaderXForwardedProto?: boolean
 }
 
 /**
@@ -26,6 +28,7 @@ export class ServerHono extends Hono {
   }
   static configureRoutes(hono: Hono, data: Database, options?: IServerOptions) {
     const spaces = new SpaceRepository(data)
+    const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
 
     hono.use('*', cors({
       origin(origin, c) {
@@ -49,42 +52,47 @@ export class ServerHono extends Hono {
 
     hono.get('/spaces/', getSpacesIndex(spaces))
     hono.post('/spaces/', postSpacesIndex(spaces))
-    hono.get('/space/:uuid', getSpaceByUuid(spaces))
+    hono.get('/space/:uuid',
+      zcapAuthorization({
+        spaces,
+        getSpaceId(c) { return c.req.param('uuid') },
+      }),
+      getSpaceByUuid(spaces))
     hono.put('/space/:uuid', putSpaceByUuid(spaces))
 
     // GET /space/:uuid/:resourceName{.*}
     // ^ errors from within hono when the resourceName pattern can be an empty string
-    const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
-    hono.get('/space/:spaceWithName{.+}', async (c, next) => {
-      const spaceWithName = c.req.param('spaceWithName')
-      const match = spaceWithName.match(patternOfSpaceSlashName)
-      const space = match?.groups?.space
-      const name = match?.groups?.name ?? ''
-      if (!(space)) {
-        return next()
-      }
-      const resources = new ResourceRepository(data)
-      const representations = await collect(resources.iterateSpaceNamedRepresentations({
-        space,
-        name,
-      }))
-      if (representations.length === 0) {
-        return c.notFound()
-      }
-      if (representations.length > 1) {
-        console.warn(`found multiple representations for GET /space/${space}/${name}`, representations)
-      }
-      const [representation] = representations
-      return c.newResponse(await representation.blob.bytes(), {
-        headers: {
-          "Content-Type": representation.blob.type,
+    hono.get('/space/:spaceWithName{.+}',
+      async (c, next) => {
+        const spaceWithName = c.req.param('spaceWithName')
+        const match = spaceWithName.match(patternOfSpaceSlashName)
+        const space = match?.groups?.space
+        const name = match?.groups?.name ?? ''
+        if (!(space)) {
+          return next()
         }
+        const resources = new ResourceRepository(data)
+        const representations = await collect(resources.iterateSpaceNamedRepresentations({
+          space,
+          name,
+        }))
+        if (representations.length === 0) {
+          return c.notFound()
+        }
+        if (representations.length > 1) {
+          console.warn(`found multiple representations for GET /space/${space}/${name}`, representations)
+        }
+        const [representation] = representations
+        return c.newResponse(await representation.blob.bytes(), {
+          headers: {
+            "Content-Type": representation.blob.type,
+          }
+        })
       })
-    })
 
     // PUT /space/:uuid/:resourceName{.*}
     // ^ errors from within hono when the resourceName pattern can be an empty string
-    hono.put('/space/:spaceWithName{.+}', async (c,next) => {
+    hono.put('/space/:spaceWithName{.+}', async (c, next) => {
       const spaceWithName = c.req.param('spaceWithName')
       const match = spaceWithName.match(patternOfSpaceSlashName)
       const space = match?.groups?.space
