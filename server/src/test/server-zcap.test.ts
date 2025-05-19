@@ -6,6 +6,8 @@ import assert from 'assert'
 import { Ed25519Signer } from '@did.coop/did-key-ed25519'
 import { createHttpSignatureAuthorization } from 'authorization-signature'
 import MIMEType from "whatwg-mimetype"
+import { createRequestForCapabilityInvocation } from 'dzcap/zcap-invocation-request'
+import { delegate } from 'dzcap/delegation'
 
 // create a database suitable for constructing a testable Server(database)
 async function createTestDatabase() {
@@ -37,6 +39,20 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
     const response = await server.fetch(request)
     assert.equal(response.status, 204, 'response status to PUT /spaces/ MUST be 204')
 
+    await t.test(`GET with no authorization`, async t => {
+      const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
+      const requestMethod = 'GET'
+      const responseToGetSpace = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        headers: {
+          'Accept': 'application/json',
+        },
+      }))
+      assert.equal(
+        responseToGetSpace.status, 401,
+        'response status to GET /space/:uuid MUST be 401')
+    })
+
     await t.test(`GET with signature from space controller`, async t => {
       const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
       const requestMethod = 'GET'
@@ -67,30 +83,32 @@ await describe('wallet-attached-storage-server ZCAP authorization', async t => {
       assert.equal(spaceFromGet.controller, spaceToCreate.controller)
     })
 
-     await t.test(`GET with signature over capability-invocation authorized by space controller`, async t => {
+    await t.test(`GET with signature over capability-invocation authorized by space controller`, async t => {
+      // introduce a new key that will be delegated to viz zcap
+      const keyForBob = await Ed25519Signer.generate()
       const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
       const requestMethod = 'GET'
-      
-      const responseToGetSpace = await server.fetch(new Request(requestUrl, {
-        method: requestMethod,
-        headers: {
-          'Accept': 'application/json',
-          authorization: await createHttpSignatureAuthorization({
-            signer: keyForAlice,
-            url: requestUrl,
-            method: requestMethod,
-            headers: {},
-            includeHeaders: [
-              '(created)',
-              '(expires)',
-              '(key-id)',
-              '(request-target)',
-            ],
-            created: new Date,
-            expires: new Date(Date.now() + 30 * 1000),
-          }),
-        },
-      }))
+      const capabilityForBobToGetResource = await delegate({
+        signer: keyForAlice,
+        capability: {
+          id: `urn:uuid:${crypto.randomUUID()}`,
+          controller: keyForBob.controller,
+          invocationTarget: requestUrl.toString(),
+          allowedAction: [requestMethod],
+          parentCapability: `urn:zcap:root:${encodeURIComponent(requestUrl.toString())}`,
+          "@context": ["https://w3id.org/zcap/v1"],
+          expires: new Date(Date.now() + 30 * 1000).toISOString(),
+        }
+      })
+      const requestToGetSpace = new Request(requestUrl, {
+        ...await createRequestForCapabilityInvocation(requestUrl, {
+          action: requestMethod,
+          invocationSigner: keyForAlice,
+          method: requestMethod,
+          capability: capabilityForBobToGetResource,
+        })
+      })
+      const responseToGetSpace = await server.fetch(requestToGetSpace)
       assert.equal(
         responseToGetSpace.status, 200,
         'response status to GET /space/:uuid MUST be 200')
