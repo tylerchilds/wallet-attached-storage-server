@@ -17,10 +17,8 @@ export function GET(
   // use like
   //   (new Hono).get('/spaces/:uuid', GET(spaces))
   return async (c: Context<any, '/:uuid'>) => {
-    console.debug('GET /space/:uuid')
     const uuid = c.req.param('uuid')
     const space = await spaces.getById(uuid)
-    console.debug('got space', space)
     if (!space) {
       // space does not exist
       // return 401. same as if space does exist but request includes insufficient authorization
