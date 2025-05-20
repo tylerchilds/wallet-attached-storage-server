@@ -9,7 +9,7 @@ import { PUT as putSpaceByUuid } from './routes/space.$uuid.ts'
 import ResourceRepository from "../../database/src/resource-repository.ts"
 import { collect } from "streaming-iterables"
 import { cors } from 'hono/cors'
-import { zcapAuthorization } from './lib/hono-zcap.ts'
+import { createSpaceAuthorization } from './lib/authz-middleware.ts'
 
 interface IServerOptions {
   cors?: {
@@ -52,11 +52,13 @@ export class ServerHono extends Hono {
 
     hono.get('/spaces/', getSpacesIndex(spaces))
     hono.post('/spaces/', postSpacesIndex(spaces))
-    hono.get('/space/:uuid',
-      zcapAuthorization({
-        spaces,
-        getSpaceId(c) { return c.req.param('uuid') },
-      }),
+    hono.get(
+      '/space/:uuid',
+      (c, next) => { // check if request is authorized to access the space
+        const getSpace = async () => spaces.getById(c.req.param('uuid'))
+        const authorization = createSpaceAuthorization({ getSpace })
+        return authorization(c, next)
+      },
       getSpaceByUuid(spaces))
     hono.put('/space/:uuid', putSpaceByUuid(spaces))
 
