@@ -109,6 +109,64 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       }))
 
       // @todo make it possible to configure the space so this will pass!
+      // assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
+
+      // const bodyOfHomepageResponse = await responseToPutHomepage.blob()
+      // assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
+    })
+
+    await t.test('PUT acl', async t => {
+      const acl = {
+        agentClass: 'http://xmlns.com/foaf/0.1/Agent',
+        accessTo: [
+          `/space/${spaceUuid}/`,
+        ],
+        // default: `/space/${spaceUuid}/`,
+        "mode": [
+          "Read",
+        ],
+        "@type": [
+          "http://www.w3.org/ns/auth/acl#Authorization"
+        ],
+        "@context": [
+          "http://www.w3.org/ns/auth/acl#",
+        ],
+      }
+      const blobForAcl = new Blob([JSON.stringify(acl)], { type: 'application/json' })
+      const requestUrl = new URL(`/space/${spaceUuid}/acl`, 'http://example.example')
+      const requestMethod = 'PUT'
+      const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        body: blobForAcl,
+        headers: {
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          })
+        }
+      }))
+      assert.ok(
+        responseToPutHomepage.ok,
+        `response to PUT ${requestUrl.pathname} MUST be ok`)
+    })
+
+    await t.test('GET homepage sans auth now that there is an acl', async t => {
+      const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
+      const requestMethod = 'GET'
+      const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+      }))
+
       assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
 
       // const bodyOfHomepageResponse = await responseToPutHomepage.blob()
