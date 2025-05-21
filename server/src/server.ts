@@ -10,6 +10,7 @@ import ResourceRepository from "../../database/src/resource-repository.ts"
 import { collect } from "streaming-iterables"
 import { cors } from 'hono/cors'
 import { authorizeWithSpace } from './lib/authz-middleware.ts'
+import { z } from "zod"
 
 interface IServerOptions {
   cors?: {
@@ -72,14 +73,80 @@ export class ServerHono extends Hono {
       // GET /space/:uuid/:resourceName{.*}
       // ^ errors from within hono when the resourceName pattern can be an empty string
       hono.get('/space/:spaceWithName{.+}',
-        authorizeWithSpace({
-          getSpace: async (c) => {
-            const spaceWithName = c.req.param('spaceWithName')
-            const spaceId = parseSpaceWithName(spaceWithName)?.space
-            if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceWithName, spaceId } })
-            return spaces.getById(spaceId)
+        // middleware to check auth using space acl
+        async (c, next) => {
+          const spaceWithName = c.req.param('spaceWithName')
+          const spaceId = parseSpaceWithName(spaceWithName)?.space
+          if (!spaceId) return next()
+          const resources = new ResourceRepository(data)
+          const spaceAclResource = (await resources.iterateSpaceNamedRepresentations({
+            space: spaceId,
+            name: 'acl',
+          }).next())?.value
+          const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
+          const shapeOfSpaceAcl = z.object({
+            authorization: z.array(z.object({
+              agentClass: z.string(),
+              accessTo: z.array(z.string()),
+              mode: z.array(z.string()),
+            }))
+          })
+          const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
+          console.debug('spaceAcl resource', spaceAcl)
+          let authorizedViaAcl = false
+
+          // check if the request is authorized via the space acl
+          {
+            // we want to find authorizations relevant to this request
+            function* matchRequestToAuthorizations(acl: z.TypeOf<typeof shapeOfSpaceAcl>, request: { path: string, method: string }) {
+              for (const authz of acl.authorization) {
+
+                let accessToMatches = false
+                if (authz.accessTo.includes(request.path)) {
+                  accessToMatches = true
+                }
+
+                let agentMatches = false
+                if (authz.agentClass === 'http://xmlns.com/foaf/0.1/Agent') {
+                  // this is in docs as 'Allows access to any agent, i.e., the public.'
+                  agentMatches = true
+                }
+
+                let modeMatches = false
+                let authzModeIsRead = false
+                if (authz.mode.includes('Read')) authzModeIsRead = true
+                if (authzModeIsRead && request.method === 'GET') modeMatches = true
+
+                if ([accessToMatches, agentMatches, modeMatches].every(Boolean)) {
+                  yield authz
+                }
+              }
+            }
+            const relevantAuthorizations = spaceAcl
+              ? Array.from(matchRequestToAuthorizations(spaceAcl, {
+                path: new URL(c.req.raw.url).pathname,
+                method: c.req.method,
+              }))
+              : []
+            if (relevantAuthorizations.length > 0) {
+              console.debug('relevant authorizations', relevantAuthorizations)
+              authorizedViaAcl = true
+            }
           }
-        }),
+
+          if (authorizedViaAcl) {
+            return next()
+          }
+
+          return authorizeWithSpace({
+            getSpace: async (c) => {
+              const spaceWithName = c.req.param('spaceWithName')
+              const spaceId = parseSpaceWithName(spaceWithName)?.space
+              if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceWithName, spaceId } })
+              return spaces.getById(spaceId)
+            }
+          })(c, next)
+        },
         async (c, next) => {
           const spaceWithName = c.req.param('spaceWithName')
           const match = spaceWithName.match(patternOfSpaceSlashName)
