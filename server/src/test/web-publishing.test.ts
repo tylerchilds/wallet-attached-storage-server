@@ -109,7 +109,7 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       }))
 
       // @todo make it possible to configure the space so this will pass!
-      // assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ MUST be ok`)
+      assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
 
       // const bodyOfHomepageResponse = await responseToPutHomepage.blob()
       // assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
