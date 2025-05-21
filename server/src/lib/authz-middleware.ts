@@ -8,6 +8,7 @@ import { HttpSignatureAuthorization } from "authorization-signature"
 import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
 import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
 import { HTTPException } from "hono/http-exception"
+import { SpaceNotFound } from "wallet-attached-storage-database/space-repository"
 
 /**
  * factory for a middleware to authorize
@@ -19,7 +20,7 @@ import { HTTPException } from "hono/http-exception"
  * @param options 
  * @returns 
  */
-export function createSpaceAuthorization(options: {
+export function authorizeWithSpace(options: {
   getSpace: (c: Context) => Promise<ISpace>
   trustHeaderXForwardedProto?: boolean
 }) {
@@ -38,8 +39,20 @@ export function createSpaceAuthorization(options: {
     // if there is a space controller,
     // the only other thing that should authorize the request
     // is if it is signed by the space contoller itself.
-    const space = await options.getSpace(c)
-    if (space.controller) {
+    let space: ISpace | null
+    try {
+      space = await options.getSpace(c)
+    } catch (error) {
+      if (error instanceof SpaceNotFound) {
+        // there is no space for this request.
+        // that might be fine? might not. we'll decide later
+        space = null
+      } else {
+        // unexpected error? throw it
+        throw error
+      }
+    }
+    if (space?.controller) {
       try {
         await assertRequestIsSignedBySpaceController({
           request,

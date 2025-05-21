@@ -1,17 +1,33 @@
-import type { Insertable, QueryCreator, Updateable } from "kysely"
+import { NoResultError, type Insertable, type QueryCreator, type Updateable } from "kysely"
 import type { DatabaseTables, IRepository, ISpace } from "./types"
 
+export class SpaceNotFound extends Error {}
+
 export default class SpaceRepository implements IRepository<ISpace> {
+  static SpaceNotFound = SpaceNotFound
   #database: QueryCreator<DatabaseTables>
   constructor(database: QueryCreator<DatabaseTables>) {
     this.#database = database
   }
+  /**
+   * @throws {SpaceNotFound} if the space cannot be not found
+   */
   async getById(id: string) {
+    try {
     const result = await this.#database.selectFrom('space')
       .selectAll()
       .where('uuid', '=', id)
       .executeTakeFirstOrThrow()
     return result
+    } catch (error) {
+      if (error instanceof NoResultError) {
+        throw new SpaceNotFound(`Space with id ${id} not found`, {
+          cause: error,
+        })
+      }
+      throw error
+    }
+    throw new SpaceNotFound(`Failed to get space with id ${id}`)
   }
   async create(space: Insertable<ISpace>) {
     try {
