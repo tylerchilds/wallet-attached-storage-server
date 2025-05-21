@@ -2,14 +2,15 @@ import { StorageClient } from "@wallet.storage/fetch-client";
 import { Ed25519Signer } from "@did.coop/did-key-ed25519"
 import elf from '@plan98/elf'
 
-const storage = new StorageClient(new URL('http://localhost:8080'))
+const storageId = 'http://localhost:8080'
+const storageUrl = new URL(storageId)
+const storage = new StorageClient(storageUrl)
 
 // This signer can create cryptographic signatures
 const signer = await Ed25519Signer.generate()
 
 // create the space with signer so all requests get signed by it
 const space = storage.space({ signer })
-
 
 async function main() {
   const spaceObject = {
@@ -26,23 +27,31 @@ async function main() {
 
   const responseToGetSpace = await space.get()
   console.debug({ responseToGetSpace })
+
+  const index = space.resource('/hahahla/aalkslj')
+  const blobForIndex = new Blob(['<!doctype html><h1>The Index5</h1>'], { type: 'text/html' })
+  const responseToPutIndex = await index.put(blobForIndex, { signer })
+  const indexUrl = new URL(index.path, storageUrl)
+  $.teach({ home: indexUrl.toString() })
 }
 
 main()
 
-const $ = elf('my-wallet', { cards: [] })
+const $ = elf('my-wallet', { cards: [], home: '' })
 
 $.draw((target) => {
-  const { cards } = $.learn()
+  const { cards, home } = $.learn()
   return cards.length > 0 ? `
     ${cards.map(renderCard).join('')}
     <button data-link>
       Link Card
     </button>
+    <iframe src="${home}"></iframe>
   ` : `
     <button data-link>
       Link Card
     </button>
+    <iframe src="${home}"></iframe>
   `
 })
 
