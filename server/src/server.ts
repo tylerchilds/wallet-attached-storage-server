@@ -79,9 +79,20 @@ export class ServerHono extends Hono {
           const spaceId = parseSpaceWithName(spaceWithName)?.space
           if (!spaceId) return next()
           const resources = new ResourceRepository(data)
+
+          // look up the space index
+          const spaceIndex = await collect(resources.iterateSpaceNamedRepresentations({
+            space: spaceId,
+            name: '',
+          }))
+
+          const spaceIndexLd = spaceIndex.find(r => r.blob.type === 'application/ld+json')
+          const spaceIndexLdObject = spaceIndexLd && JSON.parse(await spaceIndexLd.blob.text())
+          const indexAclValue = spaceIndexLdObject?.['http://www.w3.org/ns/auth/acl#acl']
+
           const spaceAclResource = (await resources.iterateSpaceNamedRepresentations({
             space: spaceId,
-            name: 'acl',
+            name: indexAclValue,
           }).next())?.value
           const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
           const shapeOfSpaceAcl = z.object({
@@ -92,7 +103,6 @@ export class ServerHono extends Hono {
             }))
           })
           const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
-          console.debug('spaceAcl resource', spaceAcl)
           let authorizedViaAcl = false
 
           // check if the request is authorized via the space acl
@@ -129,7 +139,6 @@ export class ServerHono extends Hono {
               }))
               : []
             if (relevantAuthorizations.length > 0) {
-              console.debug('relevant authorizations', relevantAuthorizations)
               authorizedViaAcl = true
             }
           }
