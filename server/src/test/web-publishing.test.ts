@@ -94,7 +94,7 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
           })
         }
       }))
-      if ( ! responseToPutHomepage.ok) {
+      if (!responseToPutHomepage.ok) {
         console.debug('responseToPutHomepage', responseToPutHomepage)
       }
       assert.ok(
@@ -102,20 +102,6 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
         `response to ${requestMethod} /space/:uuid/ MUST be ok`)
       const bodyOfHomepageResponse = await responseToPutHomepage.blob()
       assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
-    })
-
-    await t.test('GET homepage sans auth', async t => {
-      const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
-      const requestMethod = 'GET'
-      const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
-        method: requestMethod,
-      }))
-
-      // @todo make it possible to configure the space so this will pass!
-      // assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
-
-      // const bodyOfHomepageResponse = await responseToPutHomepage.blob()
-      // assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
     })
 
     await t.test('PUT acl', async t => {
@@ -167,7 +153,7 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
         `response to PUT ${requestUrl.pathname} MUST be ok`)
     })
 
-    await t.test('GET homepage sans auth now that there is an acl', async t => {
+    await t.test('GET homepage sans auth (with acl set up)', async t => {
       const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
       const requestMethod = 'GET'
       const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
@@ -176,8 +162,8 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
 
       assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
 
-      // const bodyOfHomepageResponse = await responseToPutHomepage.blob()
-      // assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
+      const bodyOfHomepageResponse = await responseToPutHomepage.blob()
+      assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
     })
   })
 })
