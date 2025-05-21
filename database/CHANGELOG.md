@@ -1,5 +1,12 @@
 # wallet-attached-storage-database
 
+## 0.2.0
+
+### Minor Changes
+
+- f730ec6: add wallet-attached-storage-database/space-repository export
+- f730ec6: SpaceRepository#getById throws SpaceNotFound when unable to get a space
+
 ## 0.1.0
 
 ### Minor Changes
