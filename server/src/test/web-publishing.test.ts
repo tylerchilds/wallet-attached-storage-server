@@ -37,7 +37,8 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       },
     })
     const spaceToCreate = {
-      controller: keyForAlice.controller
+      acl: 'acl',
+      controller: keyForAlice.controller,
     }
     const request = createPutSpaceByUuidRequest(spaceToCreate)
     const response = await server.fetch(request)
