@@ -17,6 +17,7 @@
     "authorization-signature": "github:gobengo/authorization-signature",
     "canonicalize": "^2.1.0",
     "hono": "^4.7.9",
+    "hono-zcap": "^1.0.0",
     "streaming-iterables": "^8.0.1",
     "uuid": "github:gobengo/uuid",
     "whatwg-mimetype": "^4.0.0",

@@ -1,4 +1,4 @@
-import type { Context } from "hono"
+import type { Context, Next } from "hono"
 import type SpaceRepository from "../../../database/src/space-repository.ts"
 import { HttpSignatureAuthorization } from "authorization-signature"
 import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
@@ -17,28 +17,6 @@ export function GET(
   // use like
   //   (new Hono).get('/spaces/:uuid', GET(spaces))
   return async (c: Context<any, '/:uuid'>) => {
-    // check if request is authorized
-    {
-      // look up space to see if it has a controller that determines authz.
-      const space = await spaces.getById(c.req.param('uuid'))
-      if (space.controller) {
-        try {
-          await assertRequestAuthorizedBy(c.req.raw, space.controller)
-        } catch (error) {
-          if (error instanceof AuthorizationMissing) {
-            throw new HTTPException(401, {
-              message: 'Authorization is required but missing.',
-              cause: error,
-            })
-          }
-          if (error instanceof NotAuthorized) {
-            throw new HTTPException(401, { cause: error })
-          }
-          throw error
-        }
-      }
-    }
-
     const uuid = c.req.param('uuid')
     const space = await spaces.getById(uuid)
     if (!space) {
@@ -46,10 +24,9 @@ export function GET(
       // return 401. same as if space does exist but request includes insufficient authorization
       return c.newResponse(null, 401)
     }
-    return c.json(space)
+    return c.json(space, 200)
   }
 }
-
 
 /**
  * build a route to get a space by uuid from a space repository
