@@ -94,6 +94,9 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
           })
         }
       }))
+      if ( ! responseToPutHomepage.ok) {
+        console.debug('responseToPutHomepage', responseToPutHomepage)
+      }
       assert.ok(
         responseToPutHomepage.ok,
         `response to ${requestMethod} /space/:uuid/ MUST be ok`)
@@ -117,16 +120,20 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
 
     await t.test('PUT acl', async t => {
       const acl = {
-        agentClass: 'http://xmlns.com/foaf/0.1/Agent',
-        accessTo: [
-          `/space/${spaceUuid}/`,
-        ],
-        // default: `/space/${spaceUuid}/`,
-        "mode": [
-          "Read",
-        ],
-        "@type": [
-          "http://www.w3.org/ns/auth/acl#Authorization"
+        authorization: [
+          {
+            agentClass: 'http://xmlns.com/foaf/0.1/Agent',
+            accessTo: [
+              `/space/${spaceUuid}/`,
+            ],
+            // default: `/space/${spaceUuid}/`,
+            "mode": [
+              "Read",
+            ],
+            "@type": [
+              "http://www.w3.org/ns/auth/acl#Authorization"
+            ],
+          }
         ],
         "@context": [
           "http://www.w3.org/ns/auth/acl#",
