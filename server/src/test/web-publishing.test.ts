@@ -37,7 +37,6 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       },
     })
     const spaceToCreate = {
-      acl: 'acl',
       controller: keyForAlice.controller,
     }
     const request = createPutSpaceByUuidRequest(spaceToCreate)
@@ -154,11 +153,48 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
         `response to PUT ${requestUrl.pathname} MUST be ok`)
     })
 
+    // this is necessary to explicitly configure the acl to be the resource at ./acl.
+    // otherwise, the server would only know about './acl' by convention.
+    await t.test('PUT space index application/ld+json with acl', async t => {
+      const index = {
+        'http://www.w3.org/ns/auth/acl#acl': 'acl',
+      }
+      const blobForIndex = new Blob([JSON.stringify(index)], { type: 'application/ld+json' })
+      const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
+      const requestMethod = 'PUT'
+      const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        body: blobForIndex,
+        headers: {
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          })
+        }
+      }))
+      assert.ok(
+        responseToPutHomepage.ok,
+        `response to PUT ${requestUrl.pathname} MUST be ok`)
+    })
+
     await t.test('GET homepage sans auth (with acl set up)', async t => {
       const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
       const requestMethod = 'GET'
       const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
         method: requestMethod,
+        headers: {
+          accept: 'text/html',
+        }
       }))
 
       assert.ok(responseToPutHomepage.ok, `response to ${requestMethod} /space/:uuid/ sans auth MUST be ok`)
