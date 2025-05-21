@@ -1,5 +1,11 @@
 # wallet-attached-storage-server
 
+## 0.2.0
+
+### Minor Changes
+
+- f730ec6: Space HTTP API resources require authorization from the space controller. Authorization can be provided as an HTTP Signature signed by the Space Controller, or an HTTP Signature invoking a ZCAP <https://w3c-ccg.github.io/zcap-spec/> delegated by the Space Controller.
+
 ## 0.1.0
 
 ### Minor Changes
