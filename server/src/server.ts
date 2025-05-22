@@ -11,6 +11,7 @@ import { collect } from "streaming-iterables"
 import { cors } from 'hono/cors'
 import { authorizeWithSpace } from './lib/authz-middleware.ts'
 import { z } from "zod"
+import { SpaceResourceHono } from "./routes/space.$uuid.$name.ts"
 
 interface IServerOptions {
   cors?: {
@@ -64,126 +65,19 @@ export class ServerHono extends Hono {
       authorizeWithSpace({ getSpace: async (c) => spaces.getById(c.req.param('uuid')), }),
       putSpaceByUuid(spaces))
 
+    // resources in a space
+    // * /space/:space/:name{.*}
+    hono.route('/space/:space/', new SpaceResourceHono({
+      data,
+      space: (c) => c.req.param('space'),
+    }))
+
     // /space/:uuid/:resourceName{.*}
     //
     // Unfortunately, this group resourceName that may be the empty string
     // seems to break hono.
     // So we will parse it from /space/:spaceWithName{.+} instead
     {
-      // GET /space/:uuid/:resourceName{.*}
-      // ^ errors from within hono when the resourceName pattern can be an empty string
-      hono.get('/space/:spaceWithName{.+}',
-        // middleware to check auth using space acl
-        async (c, next) => {
-          const spaceWithName = c.req.param('spaceWithName')
-          const spaceId = parseSpaceWithName(spaceWithName)?.space
-          if (!spaceId) return next()
-          const resources = new ResourceRepository(data)
-
-          // look up the space index
-          const spaceIndex = await collect(resources.iterateSpaceNamedRepresentations({
-            space: spaceId,
-            name: '',
-          }))
-
-          const spaceIndexLd = spaceIndex.find(r => r.blob.type === 'application/ld+json')
-          const spaceIndexLdObject = spaceIndexLd && JSON.parse(await spaceIndexLd.blob.text())
-          const indexAclValue = spaceIndexLdObject?.['http://www.w3.org/ns/auth/acl#acl']
-
-          const spaceAclResource = (await resources.iterateSpaceNamedRepresentations({
-            space: spaceId,
-            name: indexAclValue,
-          }).next())?.value
-          const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
-          const shapeOfSpaceAcl = z.object({
-            authorization: z.array(z.object({
-              agentClass: z.string(),
-              accessTo: z.array(z.string()),
-              mode: z.array(z.string()),
-            }))
-          })
-          const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
-          let authorizedViaAcl = false
-
-          // check if the request is authorized via the space acl
-          {
-            // we want to find authorizations relevant to this request
-            function* matchRequestToAuthorizations(acl: z.TypeOf<typeof shapeOfSpaceAcl>, request: { path: string, method: string }) {
-              for (const authz of acl.authorization) {
-
-                let accessToMatches = false
-                if (authz.accessTo.includes(request.path)) {
-                  accessToMatches = true
-                }
-
-                let agentMatches = false
-                if (authz.agentClass === 'http://xmlns.com/foaf/0.1/Agent') {
-                  // this is in docs as 'Allows access to any agent, i.e., the public.'
-                  agentMatches = true
-                }
-
-                let modeMatches = false
-                let authzModeIsRead = false
-                if (authz.mode.includes('Read')) authzModeIsRead = true
-                if (authzModeIsRead && request.method === 'GET') modeMatches = true
-
-                if ([accessToMatches, agentMatches, modeMatches].every(Boolean)) {
-                  yield authz
-                }
-              }
-            }
-            const relevantAuthorizations = spaceAcl
-              ? Array.from(matchRequestToAuthorizations(spaceAcl, {
-                path: new URL(c.req.raw.url).pathname,
-                method: c.req.method,
-              }))
-              : []
-            if (relevantAuthorizations.length > 0) {
-              authorizedViaAcl = true
-            }
-          }
-
-          if (authorizedViaAcl) {
-            return next()
-          }
-
-          return authorizeWithSpace({
-            getSpace: async (c) => {
-              const spaceWithName = c.req.param('spaceWithName')
-              const spaceId = parseSpaceWithName(spaceWithName)?.space
-              if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceWithName, spaceId } })
-              return spaces.getById(spaceId)
-            }
-          })(c, next)
-        },
-        async (c, next) => {
-          const spaceWithName = c.req.param('spaceWithName')
-          const match = spaceWithName.match(patternOfSpaceSlashName)
-          const space = match?.groups?.space
-          const name = match?.groups?.name ?? ''
-          if (!(space)) {
-            return next()
-          }
-          const resources = new ResourceRepository(data)
-          const representations = await collect(resources.iterateSpaceNamedRepresentations({
-            space,
-            name,
-          }))
-          if (representations.length === 0) {
-            return c.notFound()
-          }
-          if (representations.length > 1) {
-            console.warn(`found multiple representations for GET /space/${space}/${name}`, representations)
-          }
-          const [representation] = representations
-          return c.newResponse(await representation.blob.bytes(), {
-            headers: {
-              "Content-Type": representation.blob.type,
-            }
-          })
-        })
-
-
       // PUT /space/:uuid/:resourceName{.*}
       // ^ errors from within hono when the resourceName pattern can be an empty string
       hono.put('/space/:spaceWithName{.+}',
