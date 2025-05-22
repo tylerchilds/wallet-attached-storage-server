@@ -28,18 +28,13 @@ function configureRoutes<E extends Env, P extends string>(
   hono: Hono<E>,
   options: ISpaceResourceHonoOptions<P>
 ) {
-
-  const resources = new ResourceRepository(options.data)
-  const spaces = new SpaceRepository(options.data)
-
   hono.on('get', ['', ':name{.+}'], ...GET(options))
-
   hono.on('put', ['', ':name{.+}'], ...PUT(options))
 }
 
 const factory = createFactory<Env, `/space/:space/:name`>()
 
-const GET = <E extends Env, P extends string>(options: ISpaceResourceHonoOptions<P>) => {
+export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => {
   const resources = new ResourceRepository(options.data)
   const spaces = new SpaceRepository(options.data)
   const handleGet = factory.createHandlers(
@@ -153,7 +148,7 @@ const GET = <E extends Env, P extends string>(options: ISpaceResourceHonoOptions
   return handleGet
 }
 
-const PUT = <E extends Env, P extends string>(options: ISpaceResourceHonoOptions<P>) => {
+export const PUT = <P extends string>(options: ISpaceResourceHonoOptions<P>) => {
   const handlePut = factory.createHandlers(
     (c, next) => { // check if request is authorized to access the space
       const spaceId = options.space(c)
