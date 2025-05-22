@@ -38,6 +38,8 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
     })
     const spaceToCreate = {
       controller: keyForAlice.controller,
+      // configure pointer to links of space
+      link: `/space/${spaceUuid}/links/`,
     }
     const request = createPutSpaceByUuidRequest(spaceToCreate)
     const response = await server.fetch(request)
@@ -151,6 +153,48 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       assert.ok(
         responseToPutHomepage.ok,
         `response to PUT ${requestUrl.pathname} MUST be ok`)
+    })
+
+    await t.test('PUT /space/:space/linkset with acl link', async t => {
+      const linkset = {
+        linkset: [
+          {
+            anchor: `/space/${spaceUuid}/`,
+            acl: [
+              {href:`/space/${spaceUuid}/acl`},
+            ]
+          }
+        ]
+      }
+      const blobForLinkset = new Blob(
+        [JSON.stringify(linkset)],
+        { type: 'application/linkset+json' }
+      )
+      const requestUrl = new URL(`/space/${spaceUuid}/linkset`, 'http://example.example')
+      const requestMethod = 'PUT'
+      const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        body: blobForLinkset,
+        headers: {
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          })
+        }
+      }))
+      assert.ok(
+        responseToPutHomepage.ok,
+        `response to PUT ${requestUrl.pathname} MUST be ok`)      
     })
 
     // this is necessary to explicitly configure the acl to be the resource at ./acl.
