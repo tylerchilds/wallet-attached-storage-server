@@ -6,14 +6,15 @@ import { collect } from "streaming-iterables";
 import { authorizeWithSpace } from "../lib/authz-middleware.ts";
 import { z } from "zod"
 import SpaceRepository from "wallet-attached-storage-database/space-repository";
+import { createFactory } from 'hono/factory'
 
-interface ISpaceResourceHonoOptions<C extends Context> {
-  space: (c: C) => string | undefined,
+interface ISpaceResourceHonoOptions<P extends string> {
+  space: (c: Context<Env, P>) => string | undefined,
   data: Database,
 }
 
 export class SpaceResourceHono<E extends Env, P extends string> extends Hono<E> {
-  constructor(options: ISpaceResourceHonoOptions<Context<E, P>>) {
+  constructor(options: ISpaceResourceHonoOptions<P>) {
     super()
     this.configureRoutes(this, options)
   }
@@ -25,14 +26,23 @@ export class SpaceResourceHono<E extends Env, P extends string> extends Hono<E> 
  */
 function configureRoutes<E extends Env, P extends string>(
   hono: Hono<E>,
-  options: ISpaceResourceHonoOptions<Context<E, P>>
+  options: ISpaceResourceHonoOptions<P>
 ) {
 
   const resources = new ResourceRepository(options.data)
   const spaces = new SpaceRepository(options.data)
 
-  hono.on('get', ['', ':name'],
-    // middleware to check auth using space acl
+  hono.on('get', ['', ':name{.+}'], ...GET(options))
+
+  hono.on('put', ['', ':name{.+}'], ...PUT(options))
+}
+
+const factory = createFactory<Env, `/space/:space/:name`>()
+
+const GET = <E extends Env, P extends string>(options: ISpaceResourceHonoOptions<P>) => {
+  const resources = new ResourceRepository(options.data)
+  const spaces = new SpaceRepository(options.data)
+  const handleGet = factory.createHandlers(
     async (c, next) => {
       const spaceWithName = c.req.param('spaceWithName')
       const spaceId = options.space(c)
@@ -125,7 +135,7 @@ function configureRoutes<E extends Env, P extends string>(
         space,
         name,
       }))
-      console.debug('representations', representations, { space, name})
+      console.debug('representations', representations, { space, name })
       if (representations.length === 0) {
         return c.notFound()
       }
@@ -138,5 +148,38 @@ function configureRoutes<E extends Env, P extends string>(
           "Content-Type": representation.blob.type,
         }
       })
-    })
+    }
+  )
+  return handleGet
+}
+
+const PUT = <E extends Env, P extends string>(options: ISpaceResourceHonoOptions<P>) => {
+  const handlePut = factory.createHandlers(
+    (c, next) => { // check if request is authorized to access the space
+      const spaceId = options.space(c)
+      const spaces = new SpaceRepository(options.data)
+      const getSpace = async () => {
+        if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceId } })
+        return spaces.getById(spaceId)
+      }
+      const authorization = authorizeWithSpace({ getSpace })
+      return authorization(c, next)
+    },
+    async (c, next) => {
+      const spaceWithName = c.req.param('spaceWithName')
+      const space = options.space(c)
+      const name = c.req.param('name') ?? '';
+      if (!(space)) {
+        return next()
+      }
+      const representation = await c.req.blob()
+      const resources = new ResourceRepository(options.data)
+      await resources.putSpaceNamedResource({
+        space,
+        name: name ?? '',
+        representation,
+      })
+      return c.newResponse(null, 201)
+    });
+  return handlePut
 }
