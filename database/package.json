@@ -19,6 +19,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./resource-repository": {
+      "types": "./src/resource-repository.ts",
+      "import": "./src/resource-repository.ts"
+    },
     "./space-repository": {
       "types": "./src/space-repository.ts",
       "import": "./src/space-repository.ts"
