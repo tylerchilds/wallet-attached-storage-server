@@ -27,7 +27,6 @@ export class ServerHono extends Hono {
   }
   static configureRoutes(hono: Hono, data: Database, options?: IServerOptions) {
     const spaces = new SpaceRepository(data)
-    const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
 
     hono.use('*', cors({
       origin(origin, c) {
