@@ -43,7 +43,10 @@ export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
       const spaceWithName = c.req.param('spaceWithName')
       const spaceId = options.space(c)
       if (!spaceId) return next()
-      const resources = new ResourceRepository(options.data)
+
+      // look up the space object
+      const spaceObject = await spaces.getById(spaceId)
+      console.debug('space', spaceObject)
 
       // look up the space index
       const spaceIndex = await collect(resources.iterateSpaceNamedRepresentations({
