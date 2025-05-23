@@ -1,12 +1,12 @@
 import { NoResultError, type Insertable, type QueryCreator, type Updateable } from "kysely"
-import type { DatabaseTables, IRepository, ISpace } from "./types"
+import type { Database, DatabaseTables, IRepository, ISpace } from "./types"
 
 export class SpaceNotFound extends Error { }
 
 export default class SpaceRepository implements IRepository<ISpace> {
   static SpaceNotFound = SpaceNotFound
-  #database: QueryCreator<DatabaseTables>
-  constructor(database: QueryCreator<DatabaseTables>) {
+  #database: Database
+  constructor(database: Database) {
     this.#database = database
   }
   /**
@@ -15,7 +15,7 @@ export default class SpaceRepository implements IRepository<ISpace> {
   async getById(id: string) {
     try {
       const result = await this.#database.selectFrom('space')
-        .innerJoin('link', 'link.anchor', 'space.uuid')
+        .leftJoin('link', 'link.anchor', 'space.uuid')
         .select([
           'space.uuid',
           'space.name',
@@ -61,19 +61,39 @@ export default class SpaceRepository implements IRepository<ISpace> {
       })
     }
   }
-  async put(space: Updateable<ISpace>) {
+  async put(space: Updateable<ISpace> & Pick<ISpace, 'uuid'>) {
     const rowForSpace = {
       controller: space.controller,
       uuid: space.uuid,
       name: space.name,
     }
     try {
-      await this.#database.insertInto('space')
-        .values(rowForSpace)
-        .onConflict(oc => {
-          return oc.column('uuid').doUpdateSet(rowForSpace)
-        })
-        .executeTakeFirstOrThrow()
+      await this.#database.transaction().execute(async trx => {
+        await trx.insertInto('space')
+          .values(rowForSpace)
+          .onConflict(oc => {
+            return oc.column('uuid').doUpdateSet(rowForSpace)
+          })
+          .executeTakeFirstOrThrow()
+
+        if (space.link) {
+          await trx.deleteFrom('link')
+            .where('link.anchor', '=', space.uuid)
+            .where('link.rel', '=', 'linkset')
+            .executeTakeFirstOrThrow()
+
+          await trx.insertInto('link')
+            .values({
+              uuid: crypto.randomUUID(),
+              anchor: space.uuid,
+              rel: 'linkset',
+              href: space.link,
+            })
+            .executeTakeFirstOrThrow()
+        }
+      })
+
+
     } catch (error) {
       throw new Error(`Failed to create space`, {
         cause: error,
@@ -82,7 +102,7 @@ export default class SpaceRepository implements IRepository<ISpace> {
   }
   async toArray() {
     const spaces = await this.#database.selectFrom('space')
-      .innerJoin('link', 'link.anchor', 'space.uuid')
+      .leftJoin('link', 'link.anchor', 'space.uuid')
       .select([
         'space.uuid',
         'space.name',

@@ -45,6 +45,36 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
     const response = await server.fetch(request)
     assert.equal(response.status, 204, 'response status to PUT /spaces/ MUST be 204')
 
+    await t.test('GET space', async t => {
+      const requestUrl = new URL(`/space/${spaceUuid}`, 'http://example.example')
+      const requestMethod = 'GET'
+      const response = await server.fetch(new Request(requestUrl, {
+        method: requestMethod,
+        headers: {
+          authorization: await createHttpSignatureAuthorization({
+            signer: keyForAlice,
+            url: requestUrl,
+            method: requestMethod,
+            headers: {},
+            includeHeaders: [
+              '(created)',
+              '(expires)',
+              '(key-id)',
+              '(request-target)',
+            ],
+            created: new Date,
+            expires: new Date(Date.now() + 30 * 1000),
+          })
+        }
+      }))
+      assert.ok(
+        response.ok,
+        'response to PUT /space/:uuid/ MUST be ok')
+      const objectFromResponse = await response.json()
+      console.debug('objectFromResponse', objectFromResponse)
+      assert.equal(objectFromResponse.link, spaceToCreate.link)
+    })
+
     await t.test('PUT homepage with http sig from space controller', async t => {
       const homepage = new Blob(['<!doctype html><h1>Home Page</h1><p>hello world<p>'], { type: 'text/html' })
       const requestUrl = new URL(`/space/${spaceUuid}/`, 'http://example.example')
@@ -106,7 +136,7 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
       assert.equal(bodyOfHomepageResponse.type, 'text/html', `body type of GET response MUST be text/html`)
     })
 
-    await t.test('PUT /space/:space/linkset with acl link', async t => {
+    await t.test('PUT /space/:space/links/ with acl link', async t => {
       const linkset = {
         linkset: [
           {
@@ -121,7 +151,7 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
         [JSON.stringify(linkset)],
         { type: 'application/linkset+json' }
       )
-      const requestUrl = new URL(`/space/${spaceUuid}/linkset`, 'http://example.example')
+      const requestUrl = new URL(`/space/${spaceUuid}/links/`, 'http://example.example')
       const requestMethod = 'PUT'
       const responseToPutHomepage = await server.fetch(new Request(requestUrl, {
         method: requestMethod,
