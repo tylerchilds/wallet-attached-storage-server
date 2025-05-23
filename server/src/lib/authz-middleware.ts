@@ -15,12 +15,13 @@ export function authorizeWithAnyOf(...authzMethods: AuthzMethod[]) {
         return next()
       }
     }
+    const message = `This request cannot be authorized`
     throw new HTTPException(401, {
-      message: `This request cannot be authorized`,
+      message,
+      res: c.json({ message }, 401)
     })
   }
 }
-
 
 export function authorizeWithSpace(options: {
   space: (c: Context) => Promise<ISpace>,

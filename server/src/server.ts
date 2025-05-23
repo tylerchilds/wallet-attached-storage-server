@@ -76,19 +76,6 @@ export class ServerHono extends Hono {
       data,
       space: (c) => c.req.param('space'),
     }))
-
-    hono.onError(async (err, c) => {
-      if (err instanceof HTTPException) {
-        return c.json({
-          message: err.message,
-          status: err.status,
-        }, err.status)
-      }
-      return c.json({
-        status: 500,
-        message: `Unexpected error`,
-      }, 500)
-    })
   }
 }
 
