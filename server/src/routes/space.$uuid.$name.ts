@@ -4,7 +4,6 @@ import type { Database } from "wallet-attached-storage-database/types";
 import ResourceRepository from "wallet-attached-storage-database/resource-repository";
 import { collect } from "streaming-iterables";
 import { authorizeWithSpace } from "../lib/authz-middleware.ts";
-import { z } from "zod"
 import SpaceRepository, { SpaceNotFound } from "wallet-attached-storage-database/space-repository";
 import { createFactory } from 'hono/factory'
 
@@ -39,168 +38,14 @@ export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
   const resources = new ResourceRepository(options.data)
   const spaces = new SpaceRepository(options.data)
   const handleGet = factory.createHandlers(
-    async (c, next) => {
-      const spaceWithName = c.req.param('spaceWithName')
-      const spaceId = options.space(c)
-      if (!spaceId) return next()
-
-      // look up the space object
-      let spaceObject
-      try {
-        spaceObject = await spaces.getById(spaceId)
-      } catch (error) {
-        if (error instanceof SpaceNotFound) {
-          console.debug('space not found', spaceId)
-          return next()
-        }
-        console.debug('unexpected error looking up space', error)
-        throw error
+    authorizeWithSpace({
+      data: options.data,
+      space: async (c) => {
+        const spaceId = options.space(c)
+        if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceId } })
+        return spaces.getById(spaceId)
       }
-
-      // we are going to determine the link to the space acl, if there is one
-      let spaceAclResourceSelector: { space: string, name: string } | undefined
-
-      console.debug('spaceObject', spaceObject)
-      if (spaceObject.link) {
-        console.debug('spaceObject.link', spaceObject.link)
-        // determine if the link is of a known type
-        function parseSpaceLink(link: string) {
-          const patternOfSpacePath = /\/space\/(?<space>[^/]+)\/(?<name>.*)/
-          const match = link.match(patternOfSpacePath)
-          if (match) {
-            return {
-              space: match.groups?.space!,
-              name: match.groups?.name!,
-            }
-          }
-        }
-        const parsedLink = parseSpaceLink(spaceObject.link)
-        if (!parsedLink) {
-          console.warn('unexpected Space#link value. skipping it', spaceObject.link)
-        } else {
-          // We parsed the space link to a space resource.
-          // Let's look up representations of that as a linkset.
-          let linksetJsonRepresentation
-          console.debug('looking for representations of', parsedLink)
-          for await (const repr of resources.iterateSpaceNamedRepresentations(parsedLink)) {
-            if (repr.blob.type === 'application/linkset+json') {
-              linksetJsonRepresentation = repr
-              break
-            }
-          }
-
-          console.debug('linksetJsonRepresentation', linksetJsonRepresentation)
-          if (linksetJsonRepresentation) {
-            async function parseLinksetJsonBlob(blob: Blob) {
-              const text = await blob.text()
-              const object = JSON.parse(text)
-              return parseLinksetJsonFromObject(object)
-            }
-            const shapeOfLinkset = z.object({
-              linkset: z.array(
-                z.object({
-                  anchor: z.string(),
-                  acl: z.array(z.object({
-                    href: z.string(),
-                  })).optional(),
-                }),
-                z.object({
-                  anchor: z.string(),
-                }),
-
-              )
-            })
-            type LinksetFromZod = z.TypeOf<typeof shapeOfLinkset>
-            function parseLinksetJsonFromObject(object: unknown) {
-
-              const parsedLinkset = shapeOfLinkset.parse(object)
-              return parsedLinkset
-            }
-            const linkset = await parseLinksetJsonBlob(linksetJsonRepresentation.blob)
-            function* iterateAclLinkTargets(linkset: LinksetFromZod) {
-              for (const ctx of linkset.linkset) {
-                for (const target of ctx.acl ?? []) {
-                  yield target
-                }
-              }
-            }
-            console.debug('linkset', linkset)
-            const aclLinkTarget = iterateAclLinkTargets(linkset).next().value
-            console.debug('aclLinkTarget', aclLinkTarget)
-            if (aclLinkTarget) {
-              const parsedAclLinkTargetHref = parseSpaceLink(aclLinkTarget.href)
-              // we found a spaceAclResourceSelector!
-              // this was our goal since many lines above
-              spaceAclResourceSelector = parsedAclLinkTargetHref
-            }
-          }
-        }
-      }
-
-      const spaceAclResource = spaceAclResourceSelector && 
-        (await resources.iterateSpaceNamedRepresentations(spaceAclResourceSelector).next())?.value
-      const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
-      const shapeOfSpaceAcl = z.object({
-        authorization: z.array(z.object({
-          agentClass: z.string(),
-          accessTo: z.array(z.string()),
-          mode: z.array(z.string()),
-        }))
-      })
-      const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
-      console.debug('spaceAcl.authorization', spaceAcl?.authorization)
-      let authorizedViaAcl = false
-
-      // check if the request is authorized via the space acl
-      {
-        // we want to find authorizations relevant to this request
-        function* matchRequestToAuthorizations(acl: z.TypeOf<typeof shapeOfSpaceAcl>, request: { path: string, method: string }) {
-          for (const authz of acl.authorization) {
-
-            let accessToMatches = false
-            if (authz.accessTo.includes(request.path)) {
-              accessToMatches = true
-            }
-
-            let agentMatches = false
-            if (authz.agentClass === 'http://xmlns.com/foaf/0.1/Agent') {
-              // this is in docs as 'Allows access to any agent, i.e., the public.'
-              agentMatches = true
-            }
-
-            let modeMatches = false
-            let authzModeIsRead = false
-            if (authz.mode.includes('Read')) authzModeIsRead = true
-            if (authzModeIsRead && request.method === 'GET') modeMatches = true
-
-            if ([accessToMatches, agentMatches, modeMatches].every(Boolean)) {
-              yield authz
-            }
-          }
-        }
-        const relevantAuthorizations = spaceAcl
-          ? Array.from(matchRequestToAuthorizations(spaceAcl, {
-            path: new URL(c.req.raw.url).pathname,
-            method: c.req.method,
-          }))
-          : []
-        console.debug('relevantAuthorizations', relevantAuthorizations)
-        if (relevantAuthorizations.length > 0) {
-          authorizedViaAcl = true
-        }
-      }
-
-      if (authorizedViaAcl) {
-        return next()
-      }
-
-      return authorizeWithSpace({
-        getSpace: async (c) => {
-          if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceWithName, spaceId } })
-          return spaces.getById(spaceId)
-        }
-      })(c, next)
-    },
+    }),
     async (c, next) => {
       const space = await options.space(c)
       if (!(space)) {
@@ -211,7 +56,6 @@ export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
         space,
         name,
       }))
-      console.debug('representations', representations, { space, name })
       if (representations.length === 0) {
         return c.notFound()
       }
@@ -234,11 +78,14 @@ export const PUT = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
     (c, next) => { // check if request is authorized to access the space
       const spaceId = options.space(c)
       const spaces = new SpaceRepository(options.data)
-      const getSpace = async () => {
+      const space = async () => {
         if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceId } })
         return spaces.getById(spaceId)
       }
-      const authorization = authorizeWithSpace({ getSpace })
+      const authorization = authorizeWithSpace({
+        data: options.data,
+        space
+      })
       return authorization(c, next)
     },
     async (c, next) => {
