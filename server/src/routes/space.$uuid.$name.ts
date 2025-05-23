@@ -28,6 +28,7 @@ function configureRoutes<E extends Env, P extends string>(
   hono: Hono<E>,
   options: ISpaceResourceHonoOptions<P>
 ) {
+  // use .on and multiple paths templates because route /:space/:name{.*} doesn't work with hono
   hono.on('get', ['', ':name{.+}'], ...GET(options))
   hono.on('put', ['', ':name{.+}'], ...PUT(options))
 }
