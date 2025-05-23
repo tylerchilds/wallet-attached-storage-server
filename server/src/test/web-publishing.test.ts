@@ -71,7 +71,6 @@ await describe('wallet-attached-storage-server for web publishing', async t => {
         response.ok,
         'response to PUT /space/:uuid/ MUST be ok')
       const objectFromResponse = await response.json()
-      console.debug('objectFromResponse', objectFromResponse)
       assert.equal(objectFromResponse.link, spaceToCreate.link)
     })
 

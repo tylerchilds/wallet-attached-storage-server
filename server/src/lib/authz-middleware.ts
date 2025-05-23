@@ -1,147 +1,89 @@
 import type { Context, Next, Env } from "hono"
-import { createMiddleware } from "hono/factory"
-import { SpaceRepository } from "wallet-attached-storage-database"
-import { createZcapMiddleware, parseRootZcapUrn } from "hono-zcap"
-import { isDidKey } from "dzcap/did"
-import type { ISpace } from "wallet-attached-storage-database/types"
-import { HttpSignatureAuthorization } from "authorization-signature"
-import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
-import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
+import type { Database, ISpace } from "wallet-attached-storage-database/types"
 import { HTTPException } from "hono/http-exception"
+import zcapAuthorizationMethod from "./authz-zcap.ts"
 import { SpaceNotFound } from "wallet-attached-storage-database/space-repository"
+import { authorizeRequestWithSpaceAcl } from "./authz-space-acl.ts"
+import assertRequestIsSignedBySpaceController from "./authz-space-controller.ts"
 
-/**
- * factory for a middleware to authorize
- * requests to a space-controlled resource.
- * it should support at least these kinds of authorization:
- * * http signature signed by the space controller
- * * http signature over a capability-invocation
- *   delegated by the space controller to the signature keyId
- * @param options 
- * @returns 
- */
-export function authorizeWithSpace(options: {
-  getSpace: (c: Context) => Promise<ISpace>
-  trustHeaderXForwardedProto?: boolean
-}) {
-  const spaceAuthorizationMiddleware = createMiddleware(async (c, next) => {
-    const request = c.req.raw
-    const capabilityInvocation = request.headers.get('capability-invocation')
+type AuthzMethod = (request: Request) => Promise<boolean>
 
-    if (capabilityInvocation) {
-      // use the zcapAuthorization middleware
-      // to verify the invocation
-      return zcapAuthorization(options)(c, next)
+export function authorizeWithAnyOf(...authzMethods: AuthzMethod[]) {
+  return async (c: Context, next: Next) => {
+    for (const authz of authzMethods) {
+      if (await authz(c.req.raw)) {
+        return next()
+      }
     }
+    throw new HTTPException(401, {
+      message: `This request cannot be authorized`,
+    })
+  }
+}
 
-    // there is no capability invocation.
 
-    // if there is a space controller,
-    // the only other thing that should authorize the request
-    // is if it is signed by the space contoller itself.
-    let space: ISpace | null
+export function authorizeWithSpace(options: {
+  space: (c: Context) => Promise<ISpace>,
+  data: Database,
+  trustHeaderXForwardedProto?: boolean,
+  onSpaceNotFound?: (error: SpaceNotFound) => void,
+  allowWhenSpaceNotFound?: boolean,
+}) {
+  // No space controller
+  const withNoSpaceController = (o: { space: ISpace }) => async (request: Request) => {
     try {
-      space = await options.getSpace(c)
+      if (!o.space.controller) return true
+    } catch (error) {
+      if (error instanceof SpaceNotFound) return false
+      throw error
+    }
+    return false
+  }
+  // HTTP Signature
+  const withHttpSignature = (o: { space: ISpace }) => async (request: Request) => {
+    const space = o.space
+    try {
+      await assertRequestIsSignedBySpaceController({
+        request,
+        space,
+      })
+      return true
+    } catch (error) {
+      // console.warn('error asserting request is signed by space controller', error)
+    }
+    return false
+  }
+  // ZCAP
+  const withZcap = (o: { space: ISpace }) => async (request: Request) => {
+    return zcapAuthorizationMethod(request, {
+      ...options,
+      space: async () => o.space,
+    })
+  }
+  // ACL
+  const withAcl = (o: { space: ISpace }) => (request) => authorizeRequestWithSpaceAcl(request, {
+    ...options,
+    space: async () => o.space,
+  })
+  return async (c: Context, next: Next) => {
+    let space: ISpace
+    try {
+      space = await options.space(c)
     } catch (error) {
       if (error instanceof SpaceNotFound) {
-        // there is no space for this request.
-        // that might be fine? might not. we'll decide later
-        space = null
-      } else {
-        // unexpected error? throw it
-        throw error
+        options.onSpaceNotFound?.(error)
+        if (options.allowWhenSpaceNotFound) {
+          return next()
+        }
+        return c.notFound()
       }
+      throw error
     }
-    if (space?.controller) {
-      try {
-        await assertRequestIsSignedBySpaceController({
-          request,
-          space,
-        })
-      } catch (error) {
-        const message = `request signature keyId is not authorized to invoke this action`
-        throw new HTTPException(401, {
-          message,
-          res: new Response(JSON.stringify({ message }), { status: 401 }),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cause: error,
-        })
-      }
-    }
-
-    await next()
-  })
-  return spaceAuthorizationMiddleware
-}
-
-class KeyNotAuthorized extends Error { }
-
-async function assertRequestIsSignedBySpaceController(options: {
-  request: Request,
-  space: ISpace,
-}) {
-  const verified = await HttpSignatureAuthorization.verified(options.request, {
-    async getVerifier(keyId) {
-      const { verifier } = await getVerifierForKeyId(keyId)
-      return verifier
-    },
-  })
-  const authenticatedRequestKeyId = verified.keyId
-  const authenticatedRequestDid = getControllerOfDidKeyVerificationMethod(authenticatedRequestKeyId)
-  if (authenticatedRequestDid === options.space.controller) {
-    // assertion satisfied
-    return
-  }
-  throw new KeyNotAuthorized(`key ${authenticatedRequestKeyId} is not authorized to access any space`)
-}
-
-// create a middleware that authorizes
-// requests that include a zcap.
-export function zcapAuthorization(options: {
-  getSpace: (c: Context) => Promise<ISpace>
-  trustHeaderXForwardedProto?: boolean
-}) {
-  return async <E extends Env>(c: Context<E>, next: Next) => {
-    const space = await options.getSpace(c)
-    if (!(space)) {
-      return next()
-    }
-
-    // it's only required if the space has a controller AND the space is not public
-    let zcapInvocationRequired = false
-    {
-
-      const controller = space.controller
-      if (controller) {
-        zcapInvocationRequired = true
-      }
-    }
-
-    const resolveRootZcap = async (urn: `urn:zcap:root:${string}`) => {
-      const { invocationTarget } = parseRootZcapUrn(urn)
-      const controller = space.controller
-      if (!controller || !isDidKey(controller)) {
-        throw new Error(`unable to resolve controller did:key for root zcap urn`, {
-          cause: {
-            urn,
-          }
-        })
-      }
-      return {
-        "@context": "https://w3id.org/zcap/v1" as const,
-        invocationTarget,
-        id: urn,
-        controller,
-      }
-    }
-
-    // check zcap
-    return createZcapMiddleware(
-      {
-        required: zcapInvocationRequired,
-        trustHeaderXForwardedProto: options?.trustHeaderXForwardedProto,
-        resolveRootZcap,
-        expectedAction: c.req.raw.method.toUpperCase(),
-      })(c, next)
+    return authorizeWithAnyOf(
+      withNoSpaceController({ space }),
+      withHttpSignature({ space }),
+      withZcap({ space }),
+      withAcl({ space }),
+    )(c, next)
   }
 }

@@ -7,7 +7,7 @@ import type {
   Selectable,
   Updateable,
 } from 'kysely'
-import { Nullable } from 'kysely'
+import type { Nullable } from 'kysely'
 
 export interface DatabaseTables {
   blob: BlobTable
