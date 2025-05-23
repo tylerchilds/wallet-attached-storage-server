@@ -46,6 +46,7 @@ export function PUT(
       ...requestBodyObject,
       uuid,
     }
+    console.debug('spaceToCreate', spaceToCreate)
     await spaces.put(spaceToCreate)
     return c.newResponse(null, 204)
   }

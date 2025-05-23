@@ -5,7 +5,7 @@ import ResourceRepository from "wallet-attached-storage-database/resource-reposi
 import { collect } from "streaming-iterables";
 import { authorizeWithSpace } from "../lib/authz-middleware.ts";
 import { z } from "zod"
-import SpaceRepository from "wallet-attached-storage-database/space-repository";
+import SpaceRepository, { SpaceNotFound } from "wallet-attached-storage-database/space-repository";
 import { createFactory } from 'hono/factory'
 
 interface ISpaceResourceHonoOptions<P extends string> {
@@ -45,23 +45,100 @@ export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
       if (!spaceId) return next()
 
       // look up the space object
-      const spaceObject = await spaces.getById(spaceId)
-      console.debug('space', spaceObject)
+      let spaceObject
+      try {
+        spaceObject = await spaces.getById(spaceId)
+      } catch (error) {
+        if (error instanceof SpaceNotFound) {
+          console.debug('space not found', spaceId)
+          return next()
+        }
+        console.debug('unexpected error looking up space', error)
+        throw error
+      }
 
-      // look up the space index
-      const spaceIndex = await collect(resources.iterateSpaceNamedRepresentations({
-        space: spaceId,
-        name: '',
-      }))
+      // we are going to determine the link to the space acl, if there is one
+      let spaceAclResourceSelector: { space: string, name: string } | undefined
 
-      const spaceIndexLd = spaceIndex.find(r => r.blob.type === 'application/ld+json')
-      const spaceIndexLdObject = spaceIndexLd && JSON.parse(await spaceIndexLd.blob.text())
-      const indexAclValue = spaceIndexLdObject?.['http://www.w3.org/ns/auth/acl#acl']
+      console.debug('spaceObject', spaceObject)
+      if (spaceObject.link) {
+        console.debug('spaceObject.link', spaceObject.link)
+        // determine if the link is of a known type
+        function parseSpaceLink(link: string) {
+          const patternOfSpacePath = /\/space\/(?<space>[^/]+)\/(?<name>.*)/
+          const match = link.match(patternOfSpacePath)
+          if (match) {
+            return {
+              space: match.groups?.space!,
+              name: match.groups?.name!,
+            }
+          }
+        }
+        const parsedLink = parseSpaceLink(spaceObject.link)
+        if (!parsedLink) {
+          console.warn('unexpected Space#link value. skipping it', spaceObject.link)
+        } else {
+          // We parsed the space link to a space resource.
+          // Let's look up representations of that as a linkset.
+          let linksetJsonRepresentation
+          console.debug('looking for representations of', parsedLink)
+          for await (const repr of resources.iterateSpaceNamedRepresentations(parsedLink)) {
+            if (repr.blob.type === 'application/linkset+json') {
+              linksetJsonRepresentation = repr
+              break
+            }
+          }
 
-      const spaceAclResource = (await resources.iterateSpaceNamedRepresentations({
-        space: spaceId,
-        name: indexAclValue,
-      }).next())?.value
+          console.debug('linksetJsonRepresentation', linksetJsonRepresentation)
+          if (linksetJsonRepresentation) {
+            async function parseLinksetJsonBlob(blob: Blob) {
+              const text = await blob.text()
+              const object = JSON.parse(text)
+              return parseLinksetJsonFromObject(object)
+            }
+            const shapeOfLinkset = z.object({
+              linkset: z.array(
+                z.object({
+                  anchor: z.string(),
+                  acl: z.array(z.object({
+                    href: z.string(),
+                  })).optional(),
+                }),
+                z.object({
+                  anchor: z.string(),
+                }),
+
+              )
+            })
+            type LinksetFromZod = z.TypeOf<typeof shapeOfLinkset>
+            function parseLinksetJsonFromObject(object: unknown) {
+
+              const parsedLinkset = shapeOfLinkset.parse(object)
+              return parsedLinkset
+            }
+            const linkset = await parseLinksetJsonBlob(linksetJsonRepresentation.blob)
+            function* iterateAclLinkTargets(linkset: LinksetFromZod) {
+              for (const ctx of linkset.linkset) {
+                for (const target of ctx.acl ?? []) {
+                  yield target
+                }
+              }
+            }
+            console.debug('linkset', linkset)
+            const aclLinkTarget = iterateAclLinkTargets(linkset).next().value
+            console.debug('aclLinkTarget', aclLinkTarget)
+            if (aclLinkTarget) {
+              const parsedAclLinkTargetHref = parseSpaceLink(aclLinkTarget.href)
+              // we found a spaceAclResourceSelector!
+              // this was our goal since many lines above
+              spaceAclResourceSelector = parsedAclLinkTargetHref
+            }
+          }
+        }
+      }
+
+      const spaceAclResource = spaceAclResourceSelector && 
+        (await resources.iterateSpaceNamedRepresentations(spaceAclResourceSelector).next())?.value
       const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
       const shapeOfSpaceAcl = z.object({
         authorization: z.array(z.object({
