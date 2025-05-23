@@ -1,7 +1,7 @@
 import { NoResultError, type Insertable, type QueryCreator, type Updateable } from "kysely"
 import type { DatabaseTables, IRepository, ISpace } from "./types"
 
-export class SpaceNotFound extends Error {}
+export class SpaceNotFound extends Error { }
 
 export default class SpaceRepository implements IRepository<ISpace> {
   static SpaceNotFound = SpaceNotFound
@@ -14,11 +14,17 @@ export default class SpaceRepository implements IRepository<ISpace> {
    */
   async getById(id: string) {
     try {
-    const result = await this.#database.selectFrom('space')
-      .selectAll()
-      .where('uuid', '=', id)
-      .executeTakeFirstOrThrow()
-    return result
+      const result = await this.#database.selectFrom('space')
+        .innerJoin('link', 'link.anchor', 'space.uuid')
+        .select([
+          'space.uuid',
+          'space.name',
+          'space.controller',
+          'link.href as link',
+        ])
+        .where('space.uuid', '=', id)
+        .executeTakeFirstOrThrow()
+      return result
     } catch (error) {
       if (error instanceof NoResultError) {
         throw new SpaceNotFound(`Space with id ${id} not found`, {
@@ -31,13 +37,24 @@ export default class SpaceRepository implements IRepository<ISpace> {
   }
   async create(space: Insertable<ISpace>) {
     try {
+      const spaceRows = {
+        controller: space.controller,
+        uuid: space.uuid,
+        name: space.name,
+      }
       await this.#database.insertInto('space')
-        .values({
-          controller: space.controller,
-          uuid: space.uuid,
-          name: space.name,
-        })
+        .values(spaceRows)
         .executeTakeFirstOrThrow()
+      if (space.link) {
+        await this.#database.insertInto('link')
+          .values({
+            uuid: crypto.randomUUID(),
+            anchor: space.uuid,
+            rel: 'linkset',
+            href: space.link,
+          })
+          .executeTakeFirstOrThrow()
+      }
     } catch (error) {
       throw new Error(`Failed to create space`, {
         cause: error,
@@ -64,7 +81,15 @@ export default class SpaceRepository implements IRepository<ISpace> {
     }
   }
   async toArray() {
-    const spaces = await this.#database.selectFrom('space').selectAll().execute()
+    const spaces = await this.#database.selectFrom('space')
+      .innerJoin('link', 'link.anchor', 'space.uuid')
+      .select([
+        'space.uuid',
+        'space.name',
+        'space.controller',
+        'link.href as link',
+      ])
+      .execute()
     return spaces
   }
 }

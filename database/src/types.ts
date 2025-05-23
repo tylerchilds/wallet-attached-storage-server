@@ -7,9 +7,11 @@ import type {
   Selectable,
   Updateable,
 } from 'kysely'
+import { Nullable } from 'kysely'
 
 export interface DatabaseTables {
   blob: BlobTable
+  link: LinkTable
   resource: ResourceTable
   resourceRepresentation: ResourceRepresentationTable
   space: SpaceTable
@@ -32,8 +34,10 @@ export interface IRepository<T> {
 
 export interface ISpace {
   controller: string | null
-  uuid: string
+  /** uri reference to link(s) related to space */
+  link: string | null
   name: string | null
+  uuid: string
 }
 
 // Resources
@@ -69,3 +73,30 @@ export interface SpaceNamedResourceTable {
   name: string
   resourceId: string
 }
+
+// Link
+
+export interface LinkTable {
+  uuid: string
+  anchor: string
+  rel: string | null
+  href: string
+  linkset: Nullable<JSONColumnType<Linkset>>
+  createdAt: Generated<Date>
+}
+
+interface Linkset<Rel extends string = string> {
+  linkset: Array<LinkContext<Rel>>
+}
+
+type LinkContext<Rel extends string=string> = 
+  & { anchor: string }
+  & Record<Rel, LinkTarget[]>
+
+interface LinkTarget {
+  href: string
+  // other target attributes
+  [key: string]: string | Array<string|object>
+}
+
+export type ILink = Selectable<LinkTable>
