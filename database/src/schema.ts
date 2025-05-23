@@ -39,6 +39,7 @@ export async function initializeDatabaseSchema<Database>(db: Kysely<Database>) {
   // Link
   await db.schema
     .createTable('link')
+    .ifNotExists()
     .addColumn('uuid', 'text', (col) => col.primaryKey().notNull())
     .addColumn('anchor', 'text', (col) => col.notNull())
     .addColumn('rel', 'text')
