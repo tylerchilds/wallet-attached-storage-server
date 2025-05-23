@@ -7,6 +7,7 @@ export async function up(db: Kysely<any>): Promise<void> {
 	// For more info, see: https://kysely.dev/docs/migrations
 	await db.schema
 		.createTable('link')
+		.ifNotExists()
     .addColumn('uuid', 'text', (col) => col.primaryKey().notNull())
 		// source/origin/anchor of the link
 		.addColumn('anchor', 'text', (col) => col.notNull())
