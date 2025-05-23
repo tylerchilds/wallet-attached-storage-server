@@ -9,6 +9,7 @@ import { PUT as putSpaceByUuid } from './routes/space.$uuid.ts'
 import { cors } from 'hono/cors'
 import { authorizeWithSpace } from './lib/authz-middleware.ts'
 import { SpaceResourceHono } from "./routes/space.$uuid.$name.ts"
+import { HTTPException } from "hono/http-exception"
 
 interface IServerOptions {
   cors?: {
@@ -27,7 +28,6 @@ export class ServerHono extends Hono {
   }
   static configureRoutes(hono: Hono, data: Database, options?: IServerOptions) {
     const spaces = new SpaceRepository(data)
-    const patternOfSpaceSlashName = /^(?<space>[^/]+)\/(?<name>.*)$/
 
     hono.use('*', cors({
       origin(origin, c) {
@@ -54,12 +54,20 @@ export class ServerHono extends Hono {
 
     // GET /space/:uuid
     hono.get('/space/:uuid',
-      authorizeWithSpace({ getSpace: async (c) => spaces.getById(c.req.param('uuid')) }),
+      authorizeWithSpace({
+        data,
+        space: async (c) => spaces.getById(c.req.param('uuid'))
+      }),
       getSpaceByUuid(spaces))
 
     // PUT /space/:uuid
     hono.put('/space/:uuid',
-      authorizeWithSpace({ getSpace: async (c) => spaces.getById(c.req.param('uuid')), }),
+      authorizeWithSpace({
+        data,
+        space: async (c) => spaces.getById(c.req.param('uuid')),
+        // this allows the initial PUT space request
+        allowWhenSpaceNotFound: true,
+      }),
       putSpaceByUuid(spaces))
 
     // resources in a space
