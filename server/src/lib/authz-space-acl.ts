@@ -1,4 +1,5 @@
 import type { Context, Next, Env } from "hono"
+import { HTTPException } from "hono/http-exception"
 import { SpaceRepository } from "wallet-attached-storage-database"
 import ResourceRepository from "wallet-attached-storage-database/resource-repository"
 import type { Database, ISpace } from "wallet-attached-storage-database/types"
@@ -91,7 +92,15 @@ export async function authorizeRequestWithSpaceAcl<P extends string>(
 
   // now we have an acl resource selector.
   // let's find a representation of it
-  const acl = await queryAcl(resources, spaceAclResourceSelector)
+  let acl: ACL | undefined
+  try {
+    acl = await queryAcl(resources, spaceAclResourceSelector)
+  } catch (error) {
+    if (error instanceof FailedToParseAcl) {
+      throw new HTTPException(401, error)
+    }
+    throw error
+  }
 
   if (acl && checkIfRequestIsAuthorizedViaAcl(request, acl)) {
     return true
@@ -100,48 +109,86 @@ export async function authorizeRequestWithSpaceAcl<P extends string>(
   return false
 }
 
+type WacAcl = z.TypeOf<typeof shapeOfWacAcl>
+
 type ACL = Exclude<Awaited<ReturnType<typeof queryAcl>>, undefined>
+
+// we want to find authorizations relevant to this request
+function* matchRequestToWacAcl(acl: WacAcl, request: { path: string, method: string }) {
+  for (const authz of acl.authorization) {
+
+    let accessToMatches = false
+    if (authz.accessTo.includes(request.path)) {
+      accessToMatches = true
+    }
+
+    let agentMatches = false
+    if (authz.agentClass === 'http://xmlns.com/foaf/0.1/Agent') {
+      // this is in docs as 'Allows access to any agent, i.e., the public.'
+      agentMatches = true
+    }
+
+    let modeMatches = false
+    let authzModeIsRead = false
+    if (authz.mode.includes('Read')) authzModeIsRead = true
+    if (authzModeIsRead && request.method === 'GET') modeMatches = true
+
+    if ([accessToMatches, agentMatches, modeMatches].every(Boolean)) {
+      yield authz
+    }
+  }
+}
+
+function matchRequestToPublicCanRead(acl: z.infer<typeof shapeOfPublicCanRead>, request: { url: string, method: string }) {
+  const methodsAuthorizedByRead = ['GET', 'HEAD']
+  return methodsAuthorizedByRead.includes(request.method)
+}
 
 function checkIfRequestIsAuthorizedViaAcl(
   request: Pick<Request, 'url' | 'method'>,
   acl: ACL
 ): boolean {
-  // we want to find authorizations relevant to this request
-  function* matchRequestToAuthorizations(acl: ACL, request: { path: string, method: string }) {
-    for (const authz of acl.authorization) {
 
-      let accessToMatches = false
-      if (authz.accessTo.includes(request.path)) {
-        accessToMatches = true
-      }
-
-      let agentMatches = false
-      if (authz.agentClass === 'http://xmlns.com/foaf/0.1/Agent') {
-        // this is in docs as 'Allows access to any agent, i.e., the public.'
-        agentMatches = true
-      }
-
-      let modeMatches = false
-      let authzModeIsRead = false
-      if (authz.mode.includes('Read')) authzModeIsRead = true
-      if (authzModeIsRead && request.method === 'GET') modeMatches = true
-
-      if ([accessToMatches, agentMatches, modeMatches].every(Boolean)) {
-        yield authz
-      }
+  // WAC ACL
+  if ('authorization' in acl) {
+    const relevantAuthorizations = acl
+      ? Array.from(matchRequestToWacAcl(acl, {
+        path: new URL(request.url).pathname,
+        method: request.method,
+      }))
+      : []
+    if (relevantAuthorizations.length > 0) {
+      return true
     }
   }
-  const relevantAuthorizations = acl
-    ? Array.from(matchRequestToAuthorizations(acl, {
-      path: new URL(request.url).pathname,
-      method: request.method,
-    }))
-    : []
-  if (relevantAuthorizations.length > 0) {
+
+  // PublicCanRead ACL
+  const isPublicCanRead = 'type' in acl && (acl.type === 'PublicCanRead' || acl.type.includes('PublicCanRead'))
+  if (isPublicCanRead && matchRequestToPublicCanRead(acl, request)) {
     return true
   }
+  
   return false
 }
+
+const shapeOfWacAcl = z.object({
+  authorization: z.array(z.object({
+    agentClass: z.string(),
+    accessTo: z.array(z.string()),
+    mode: z.array(z.string()),
+  }))
+})
+
+const shapeOfPublicCanRead = z.object({
+  type: z.literal('PublicCanRead').or(z.array(z.string()).refine(items => items.includes('PublicCanRead'), { message: `type must include "PublicCanRead"` }))
+})
+
+const shapeOfSpaceAcl = z.union([
+  shapeOfWacAcl,
+  shapeOfPublicCanRead,
+])
+
+export class FailedToParseAcl extends Error { }
 
 async function queryAcl(
   resources: ResourceRepository,
@@ -150,15 +197,19 @@ async function queryAcl(
   const spaceAclResource = selector &&
     (await resources.iterateSpaceNamedRepresentations(selector).next())?.value
   const spaceAclObject = spaceAclResource && JSON.parse(await spaceAclResource.blob.text())
-  const shapeOfSpaceAcl = z.object({
-    authorization: z.array(z.object({
-      agentClass: z.string(),
-      accessTo: z.array(z.string()),
-      mode: z.array(z.string()),
-    }))
-  })
-  const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
-  return spaceAcl
+  // const shapeOfSpaceAcl = z.union([shapeOfWacAcl,shapeOfPublicCanRead])
+  try {
+    const spaceAcl = spaceAclObject ? shapeOfSpaceAcl.parse(spaceAclObject) : undefined
+    return spaceAcl
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const parseError = new FailedToParseAcl(
+        `Failed to parse ACL for space ${selector.space} with name ${selector.name}: ${error.message}`,
+        { cause: { error, selector } })
+      throw parseError
+    }
+    throw error
+  }
 }
 
 function parseSpaceLink(link: string) {
