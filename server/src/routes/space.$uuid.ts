@@ -29,7 +29,7 @@ export function GET(
 }
 
 /**
- * build a route to get a space by uuid from a space repository
+ * build a route to PUT/update a space by uuid from a space repository
  * @param spaces - the space repository to query
  * @returns - hono handler
  */
@@ -47,6 +47,25 @@ export function PUT(
       uuid,
     }
     await spaces.put(spaceToCreate)
+    return c.newResponse(null, 204)
+  }
+}
+
+
+/**
+ * build a route to delete a space by uuid from a space repository
+ * @param spaces - the space repository to query
+ * @returns - hono handler
+ */
+export function DELETE(
+  spaces: Pick<SpaceRepository, 'deleteById'>,
+) {
+  // hono request handler
+  // use like
+  //   (new Hono).get('/spaces/:uuid', GET(spaces))
+  return async (c: Context<any, '/:uuid'>) => {
+    const uuid = c.req.param('uuid')
+    await spaces.deleteById(uuid)
     return c.newResponse(null, 204)
   }
 }
