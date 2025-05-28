@@ -6,6 +6,7 @@ import { GET as getSpacesIndex } from './routes/spaces._index.ts'
 import { POST as postSpacesIndex } from './routes/spaces._index.ts'
 import { GET as getSpaceByUuid } from './routes/space.$uuid.ts'
 import { PUT as putSpaceByUuid } from './routes/space.$uuid.ts'
+import { DELETE as deleteSpaceByUuid } from './routes/space.$uuid.ts'
 import { cors } from 'hono/cors'
 import { authorizeWithSpace } from './lib/authz-middleware.ts'
 import { SpaceResourceHono } from "./routes/space.$uuid.$name.ts"
@@ -69,6 +70,13 @@ export class ServerHono extends Hono {
         allowWhenSpaceNotFound: true,
       }),
       putSpaceByUuid(spaces))
+    // DELETE /space/:uuid
+    hono.delete('/space/:uuid',
+      authorizeWithSpace({
+        data,
+        space: async (c) => spaces.getById(c.req.param('uuid')),
+      }),
+      deleteSpaceByUuid(spaces))
 
     // resources in a space
     // * /space/:space/:name{.*}

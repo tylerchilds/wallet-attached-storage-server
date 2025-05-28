@@ -29,6 +29,7 @@ export interface SpaceTable {
 export interface IRepository<T> {
   getById(id: string): Promise<Selectable<T> | null>
   create(item: Insertable<T>): Promise<void>
+  deleteById(id: string): Promise<boolean|void>
   toArray(): Promise<Selectable<T>[]>
 }
 

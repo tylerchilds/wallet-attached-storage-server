@@ -61,6 +61,11 @@ export default class SpaceRepository implements IRepository<ISpace> {
       })
     }
   }
+  async deleteById(spaceId: string) {
+    await this.#database.deleteFrom('space')
+      .where('uuid', '=', spaceId)
+      .executeTakeFirstOrThrow()
+  }
   async put(space: Updateable<ISpace> & Pick<ISpace, 'uuid'>) {
     const rowForSpace = {
       controller: space.controller,

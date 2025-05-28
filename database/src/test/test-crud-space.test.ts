@@ -33,5 +33,16 @@ describe('CRUD Space', async () => {
       assert.equal(space.name, spaceToCreate.name)
       assert.equal(space.uuid, spaceToCreate.uuid)
     });
+
+    // get by id
+    const gotById1 = await new SpaceRepository(database).getById(space.uuid);
+    assert.ok(gotById1)
+
+    // delete space
+    await new SpaceRepository(database).deleteById(space.uuid);
+
+    // after delete, get by id -> SpaceNotFound
+    const gotById2 = new SpaceRepository(database).getById(space.uuid);
+    assert.rejects(gotById2, 'SpaceNotFound')
   });
 })
