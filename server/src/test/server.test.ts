@@ -224,4 +224,43 @@ await describe('server', async t => {
       assert.equal(spaceFromGet.name, spaceWithName.name, `space name from GET MUST match space name from most recent PUT`)
     }
   })
+
+  await test('DELETE /space/:uuid', async t => {
+    const spaceUuid = crypto.randomUUID()
+
+    // first create the space
+    {
+      const responseToCreateSpace = await server.fetch(new Request(
+        new URL(`/space/${spaceUuid}`, 'http://example.example'),
+        {
+          method: 'PUT',
+          body: JSON.stringify({ name: `space ${spaceUuid}` }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      ))
+      assert.ok(responseToCreateSpace.ok)
+    }
+
+    const request = new Request(new URL(`/space/${spaceUuid}`, 'http://example.example'), {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    const response = await server.fetch(request)
+    assert.equal(response.status, 204, 'response status to DELETE /spaces/ MUST be 204')
+
+    // now try to GET it and see if it was deleted
+    const responseToGetSpace = await server.fetch(new Request(new URL(`/space/${spaceUuid}`, 'http://example.example'), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    }))
+    assert.equal(
+      responseToGetSpace.status, 404,
+      `response status to GET /space/:uuid MUST be 404 after DELETE`)
+  })
 })
