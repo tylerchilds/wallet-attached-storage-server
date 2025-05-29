@@ -29,7 +29,7 @@ async function main() {
   console.debug({ responseToGetSpace })
 
   const index = space.resource('/hahahla/aalkslj')
-  const blobForIndex = new Blob(['<!doctype html><h1>The Index5</h1>'], { type: 'text/html' })
+  const blobForIndex = new Blob(['<!doctype html><h1>Initial Test Successful</h1>'], { type: 'text/html' })
   const responseToPutIndex = await index.put(blobForIndex, { signer })
   const indexUrl = new URL(index.path, storageUrl)
   $.teach({ home: indexUrl.toString() })
@@ -40,17 +40,8 @@ main()
 const $ = elf('my-wallet', { cards: [], home: '' })
 
 $.draw((target) => {
-  const { cards, home } = $.learn()
-  return cards.length > 0 ? `
-    ${cards.map(renderCard).join('')}
-    <button data-link>
-      Link Card
-    </button>
-    <iframe src="${home}"></iframe>
-  ` : `
-    <button data-link>
-      Link Card
-    </button>
+  const { home } = $.learn()
+  return `
     <iframe src="${home}"></iframe>
   `
 })
@@ -89,3 +80,17 @@ function linkCard(state, payload) {
   }
 }
 
+$.style(`
+  & {
+    display: grid;
+    height: 100%;
+    width: 100%;
+    place-items: center;
+  }
+
+  & iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+`)

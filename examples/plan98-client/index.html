@@ -21,11 +21,18 @@
         --violet: mediumpurple;
         --gray: dimgray;
       }
+
+      * {
+        box-sizing: border-box;
+      }
+
       html, body {
         height: 100%;
         background: rgba(255,255,255,.85);
         overscroll-behavior: none;
         transform: translateZ(0);
+        padding: 0;
+        margin: 0;
       }
 
       body > *{
