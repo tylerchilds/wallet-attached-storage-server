@@ -28,6 +28,7 @@ function configureRoutes<E extends Env, P extends string>(
   options: ISpaceResourceHonoOptions<P>
 ) {
   // use .on and multiple paths templates because route /:space/:name{.*} doesn't work with hono
+  hono.on('delete', ['', ':name{.+}'], ...DELETE(options))
   hono.on('get', ['', ':name{.+}'], ...GET(options))
   hono.on('put', ['', ':name{.+}'], ...PUT(options))
 }
@@ -71,6 +72,36 @@ export const GET = <P extends string>(options: ISpaceResourceHonoOptions<P>) => 
     }
   )
   return handleGet
+}
+
+export const DELETE = <P extends string>(options: ISpaceResourceHonoOptions<P>) => {
+  const handle = factory.createHandlers(
+    (c, next) => { // check if request is authorized to access the space
+      const spaceId = options.space(c)
+      const spaces = new SpaceRepository(options.data)
+      const space = async () => {
+        if (!spaceId) throw new Error(`unable to find space`, { cause: { spaceId } })
+        return spaces.getById(spaceId)
+      }
+      const authorization = authorizeWithSpace({
+        data: options.data,
+        space
+      })
+      return authorization(c, next)
+    },
+    async (c, next) => {
+      const space = await options.space(c)
+      if (!(space)) {
+        return next()
+      }
+      const name = c.req.param('name') ?? ''
+      const resources = new ResourceRepository(options.data)
+      const resultOfDelete = await resources.deleteById(`urn:uuid:${space}/${name}`)
+      console.debug(`resultOfDelete`, resultOfDelete)
+      return c.newResponse(null, 201)
+    }
+  )
+  return handle
 }
 
 export const PUT = <P extends string>(options: ISpaceResourceHonoOptions<P>) => {
