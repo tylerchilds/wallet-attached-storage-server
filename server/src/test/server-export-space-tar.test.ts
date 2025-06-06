@@ -48,7 +48,6 @@ await test('server exporting space to tar', async t => {
       }
     })
     const responseToGetSpaceTar = await server.fetch(requestToGetSpaceTar)
-    console.debug('responseToGetSpaceTar', responseToGetSpaceTar)
     if (!responseToGetSpaceTar.ok) {
       console.warn(`unexpected not ok response from server when exporting space as tar`, responseToGetSpaceTar)
       throw new Error(`Unable to export space as tar`, { cause: { responseToGetSpaceTar } })
@@ -61,7 +60,6 @@ await test('server exporting space to tar', async t => {
 
     const exportedTar = await responseToGetSpaceTar.blob()
     const files = await collect(readFilesFromTar(exportedTar.stream()))
-    console.debug(`exported tar files`, files)
     assert.equal(files.length, 1, `expected to get files from tar`)
   }
 })
