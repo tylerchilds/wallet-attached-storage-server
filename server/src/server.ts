@@ -80,10 +80,10 @@ export class ServerHono extends Hono {
 
     // GET /space/:uuid
     hono.get('/space/:uuid',
-      // authorizeWithSpace({
-      //   data,
-      //   space: async (c) => spaces.getById(c.req.param('uuid'))
-      // }),
+      authorizeWithSpace({
+        data,
+        space: async (c) => spaces.getById(c.req.param('uuid'))
+      }),
       getSpaceByUuid({spaces,resources}))
 
     // PUT /space/:uuid
