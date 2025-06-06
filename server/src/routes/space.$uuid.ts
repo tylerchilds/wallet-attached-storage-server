@@ -1,31 +1,44 @@
 import type { Context, Next } from "hono"
 import type SpaceRepository from "../../../database/src/space-repository.ts"
-import { HttpSignatureAuthorization } from "authorization-signature"
-import { getVerifierForKeyId } from "@did.coop/did-key-ed25519/verifier"
 import { HTTPException } from 'hono/http-exception'
-import { getControllerOfDidKeyVerificationMethod } from "@did.coop/did-key-ed25519/did-key"
 import { PutSpaceRequestBodyShape } from "../shapes/PutSpaceRequestBody.ts"
-import type { PutSpaceRequestBody } from "../shapes/PutSpaceRequestBody.ts"
-import { treeifyError, z } from "zod/v4";
+import { exportSpaceTar } from "wallet-attached-storage-database/space-tar"
+import ResourceRepository from "wallet-attached-storage-database/resource-repository"
+import { negotiate } from "../lib/http.ts"
 
 /**
  * build a route to get a space by uuid from a space repository
  * @param spaces - the space repository to query
  * @returns - hono handler
  */
-export function GET(
+export function GET(o: {
   spaces: Pick<SpaceRepository, 'getById'>,
-) {
+  resources: ResourceRepository,
+}) {
   // hono request handler
-  // use like
-  //   (new Hono).get('/spaces/:uuid', GET(spaces))
+  // @example (new Hono).get('/spaces/:uuid', GET(spaces))
   return async (c: Context<any, '/:uuid'>) => {
     const uuid = c.req.param('uuid')
-    const space = await spaces.getById(uuid)
+    const space = await o.spaces.getById(uuid)
     if (!space) {
       // space does not exist
       // return 401. same as if space does exist but request includes insufficient authorization
       return c.newResponse(null, 401)
+    }
+    const contentType = negotiate(c.req.raw.headers, ['application/json', 'application/x-tar'])
+    switch (contentType) {
+      case `application/x-tar`: {
+        // export space as tar
+        const spaceTar = await exportSpaceTar(o.resources, uuid)
+        return new Response(spaceTar, {
+          headers: {
+            'Content-Type': 'application/x-tar',
+            'Content-Disposition': `attachment; filename="space.${uuid}.tar"`,
+          },
+        })
+        break;
+      }
+      // fall through for default which is application/json
     }
     return c.json(space, 200)
   }
@@ -77,39 +90,4 @@ export function DELETE(
     await spaces.deleteById(uuid)
     return c.newResponse(null, 204)
   }
-}
-
-class AuthorizationMissing extends Error { }
-class NotAuthorized extends Error { }
-
-async function assertRequestAuthorizedBy(
-  request: Request,
-  controller: string,
-) {
-  if (!request.headers.get('authorization')) {
-    throw new AuthorizationMissing(`Authorization is required but missing.`)
-  }
-
-  let authenticatedRequestKeyId: string
-  try {
-    const verified = await HttpSignatureAuthorization.verified(request, {
-      async getVerifier(keyId) {
-        const { verifier } = await getVerifierForKeyId(keyId)
-        return verifier
-      },
-    })
-    authenticatedRequestKeyId = verified.keyId
-  } catch (error) {
-    throw new Error(`Failed to verify HTTP Signature`, {
-      cause: error,
-    })
-  }
-
-  const authenticatedRequestDid = getControllerOfDidKeyVerificationMethod(authenticatedRequestKeyId as `did:key:${string}#${string}`)
-  if (authenticatedRequestDid === controller) {
-    // the request is authorized because it is signed by the controller
-    return
-  }
-
-  throw new NotAuthorized(`Insufficient authorization provided to respond to this request.`)
 }
