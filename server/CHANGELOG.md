@@ -1,5 +1,11 @@
 # wallet-attached-storage-server
 
+## 0.4.0
+
+### Minor Changes
+
+- ab150e3: GET /space/:uuid with header accept: application/x-tar responds with tar archive
+
 ## 0.3.0
 
 ### Minor Changes

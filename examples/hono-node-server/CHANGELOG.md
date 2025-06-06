@@ -1,5 +1,17 @@
 # wallet-attached-storage-server-example-hono-node-server
 
+## 0.2.0
+
+### Minor Changes
+
+- ab150e3: GET /space/:uuid with header accept: application/x-tar responds with tar archive
+
+### Patch Changes
+
+- Updated dependencies [ab150e3]
+  - wallet-attached-storage-database@0.4.0
+  - wallet-attached-storage-server@0.4.0
+
 ## 0.1.0
 
 ### Minor Changes
