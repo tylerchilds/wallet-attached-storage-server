@@ -2,25 +2,9 @@ import type { Context, Next } from "hono"
 import type SpaceRepository from "../../../database/src/space-repository.ts"
 import { HTTPException } from 'hono/http-exception'
 import { PutSpaceRequestBodyShape } from "../shapes/PutSpaceRequestBody.ts"
-import Negotiator from "negotiator"
 import { exportSpaceTar } from "wallet-attached-storage-database/space-tar"
 import ResourceRepository from "wallet-attached-storage-database/resource-repository"
-import { stream } from 'hono/streaming'
-
-function toNodeHeaders(headers: Headers) {
-  const nodeHeaders: Record<string, string[] | string> = {}
-  for (const [key, value] of headers.entries()) {
-    const normalizedKey = key.toLowerCase()
-    const prev = nodeHeaders[normalizedKey]
-    nodeHeaders[normalizedKey] = Array.isArray(prev) ? [...prev, value] : prev ? [prev, value] : value
-  }
-  return nodeHeaders
-}
-
-function negotiate(headers: Headers, supportedMediaTypes: string[]) {
-  const negotiator = new Negotiator({ headers: toNodeHeaders(headers) })
-  return negotiator.mediaType(supportedMediaTypes)
-}
+import { negotiate } from "../lib/http.ts"
 
 /**
  * build a route to get a space by uuid from a space repository
