@@ -28,6 +28,10 @@
       "types": "./src/space-repository.ts",
       "import": "./src/space-repository.ts"
     },
+    "./space-tar": {
+      "types": "./src/space-tar.ts",
+      "import": "./src/space-tar.ts"
+    },
     "./sqlite3": {
       "types": "./src/sqlite3/index.ts",
       "import": "./src/sqlite3/index.ts"

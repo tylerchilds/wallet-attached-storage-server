@@ -13,6 +13,7 @@ import { SpaceResourceHono } from "./routes/space.$uuid.$name.ts"
 import { HTTPException } from "hono/http-exception"
 import { treeifyError, ZodError } from "zod/v4"
 import { env } from 'hono/adapter'
+import ResourceRepository from "wallet-attached-storage-database/resource-repository"
 
 
 interface IServerOptions {
@@ -32,6 +33,7 @@ export class ServerHono extends Hono {
   }
   static configureRoutes(hono: Hono, data: Database, options?: IServerOptions) {
     const spaces = new SpaceRepository(data)
+    const resources = new ResourceRepository(data)
     // add error handlerno to format ZodErrors
     hono.onError(async (error, c) => {
 
@@ -78,11 +80,11 @@ export class ServerHono extends Hono {
 
     // GET /space/:uuid
     hono.get('/space/:uuid',
-      authorizeWithSpace({
-        data,
-        space: async (c) => spaces.getById(c.req.param('uuid'))
-      }),
-      getSpaceByUuid(spaces))
+      // authorizeWithSpace({
+      //   data,
+      //   space: async (c) => spaces.getById(c.req.param('uuid'))
+      // }),
+      getSpaceByUuid({spaces,resources}))
 
     // PUT /space/:uuid
     hono.put('/space/:uuid',
