@@ -68,11 +68,18 @@
         }
       }
     </script>
+    <script>
+      plan98 = {
+        env: {
+          PLAN98_WAS_HOST: "http://localhost:8080"
+        }
+      }
+    </script>
     <script async type="module" src="/main.js"></script>
   </head>
   <script>document.write(`<body pathname="${window.location.pathname}">`)</script>
     <main>
-      <my-wallet></my-wallet>
+      <was-hello></was-hello>
     </main>
   </body>
 </html>
