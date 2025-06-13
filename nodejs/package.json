@@ -1,21 +1,25 @@
 {
   "type": "module",
   "name": "wallet-attached-storage-server-nodejs",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "main": "index.js",
   "scripts": {
-    "dev": "dotenvx run -f .env.dev -- node --watch ./scripts/start.ts",
+    "dev": "dotenvx run -f .env.dev -- node --no-warnings --watch ./scripts/start.ts",
     "start": "node ./scripts/start.ts",
-    "test": "node --test"
+    "test": "node --test",
+    "kysely": "npx -p kysely-ctl kysely"
   },
   "author": "",
   "license": "MIT",
   "description": "",
   "dependencies": {
     "@hono/node-server": "^1.14.1",
+    "@types/pg-cursor": "^2.7.2",
     "better-sqlite3": "^11.10.0",
+    "connection-string": "^4.4.0",
     "kysely-ctl": "^0.12.2",
     "pg": "^8.16.0",
+    "pg-cursor": "^2.15.0",
     "wallet-attached-storage-database": "*",
     "wallet-attached-storage-server": "*"
   },
