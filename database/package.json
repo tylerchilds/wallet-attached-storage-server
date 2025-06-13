@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "wallet-attached-storage-database",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "scripts": {
     "test": "node --test"
   },
@@ -9,6 +9,7 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "@types/tar-stream": "^3.1.4",
     "kysely": "^0.28.2",
     "kysely-plugin-serialize": "^0.8.2",
     "streaming-iterables": "^8.0.1"
@@ -26,6 +27,10 @@
     "./space-repository": {
       "types": "./src/space-repository.ts",
       "import": "./src/space-repository.ts"
+    },
+    "./space-tar": {
+      "types": "./src/space-tar.ts",
+      "import": "./src/space-tar.ts"
     },
     "./sqlite3": {
       "types": "./src/sqlite3/index.ts",

@@ -1,5 +1,28 @@
 # wallet-attached-storage-server
 
+## 0.4.0
+
+### Minor Changes
+
+- ab150e3: GET /space/:uuid with header accept: application/x-tar responds with tar archive
+
+## 0.3.0
+
+### Minor Changes
+
+- 88cd73e: Add support for postgresql
+
+  This was a bit more involved than expected, because afaict sqlite3 and postgresql do not have any common data type for storing blobs. UUID data types and querything them is also slightly different. Where necessary, Kysely supports introspection such that the wallet-attached-storage-database modules can detect whether the database is backed by sqlite3 or postgresql and adjust behavior accordingly.
+
+- 78d7e08: Support ACLs represented as application/json w/ type PublicCanRead
+- 5d21396: handle DELETE /space/:spaceUuid/:resourceName
+- eddda21: authz-middleware: now can authorize by following Space#link to a linkset, and from there a link rel=acl to an ACL
+- b2fa0c6: ServerHono now adds an onError handler that formats ZodError
+- b2fa0c6: PUT /space/:uuid: add request body parser, require space.controller
+- b2fa0c6: add server tests for requesting POST /spaces/ with no controller
+- 47e70f7: add handler for DELETE /space/:uuid
+- b2fa0c6: POST /spaces/ requires space.controller
+
 ## 0.2.0
 
 ### Minor Changes

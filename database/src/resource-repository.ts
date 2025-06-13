@@ -32,7 +32,7 @@ export default class ResourceRepository implements IRepository<IResource> {
   }
   async * iterateSpaceNamedRepresentations(query: {
     space: string,
-    name: string,
+    name?: string,
   }) {
     const resultOfSelectRepresentations = await this.#database.selectFrom('resourceRepresentation')
       .innerJoin('spaceNamedResource', 'spaceNamedResource.resourceId', 'resourceRepresentation.resourceId')
@@ -45,12 +45,12 @@ export default class ResourceRepository implements IRepository<IResource> {
         'spaceNamedResource.spaceId as space',
       ])
       .where('spaceNamedResource.spaceId', '=', query.space)
-      .where('spaceNamedResource.name', '=', query.name)
+      .$if(typeof query.name === 'string', qb => qb.where('spaceNamedResource.name', '=', query.name))
       .orderBy('resourceRepresentation.createdAt', 'desc')
       .execute()
     yield* map(
       x => ({
-        blob: new Blob([x.bytes], {type:x.type}),
+        blob: new File([x.bytes], x.name, { type: x.type }),
         createdAt: x.createdAt,
       }),
       resultOfSelectRepresentations)
@@ -68,6 +68,30 @@ export default class ResourceRepository implements IRepository<IResource> {
       })
     }
   }
+  async deleteById(id: string) {
+    function isUrnUuidUri(uri: string): uri is `urn:uuid:${string}${string}` {
+      if (!uri.startsWith('urn:uuid:')) return false
+      return true
+    }
+    if (isUrnUuidUri(id)) {
+      const parsed = parseUrnUuidUriToSpaceName(id)
+      const resultOfDelete = await this.#database.deleteFrom('spaceNamedResource')
+        .where('spaceNamedResource.spaceId', '=', parsed.uuid)
+        .where('spaceNamedResource.name', '=', parsed.name)
+        .executeTakeFirstOrThrow()
+      if (resultOfDelete.numDeletedRows) {
+        return true
+      } else if (resultOfDelete.numDeletedRows === 0n) {
+        return false
+      }
+      return
+    }
+    throw new Error(`Unable to parse id to deleteById`, { cause: { id } })
+  }
+  /**
+   * @param input
+   * @param input.space - The space UUID
+   */
   async putSpaceNamedResource(input: {
     space: string,
     name: string,
@@ -112,4 +136,21 @@ export default class ResourceRepository implements IRepository<IResource> {
     const spaces = await this.#database.selectFrom('resource').selectAll().execute()
     return spaces
   }
+}
+
+function parseUrnUuidUriToSpaceName(uri: `urn:uuid:${string}${string}`) {
+  const pattern =  /urn:uuid:(?<uuid>[^/]+)(?<path>\/(?<name>.*))/
+  const match = uri.match(pattern)
+  if (match && match.groups) {
+    const { uuid, path, name } = match.groups
+    if (uuid && path) {
+      return {
+        space: uuid,
+        uuid,
+        path,
+        name,
+      }
+    }
+  }
+  throw new Error(`Failed to parse URN UUID URI: ${uri}`)
 }

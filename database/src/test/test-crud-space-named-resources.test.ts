@@ -24,24 +24,30 @@ describe('CRUD Space Named Resources', async () => {
     const resourceRepo = new ResourceRepository(database)
 
     // // name the resource within the space
-    const eampleName1 = `example-name-1-${crypto.randomUUID()}`
+    const exampleName1 = `example-name-1-${crypto.randomUUID()}`
     const representation1 = new Blob(['foo'])
     await resourceRepo.putSpaceNamedResource({
-      name: eampleName1,
+      name: exampleName1,
       space: spaceToCreate.uuid,
       representation: representation1,
     })
 
     const representations = await collect(resourceRepo.iterateSpaceNamedRepresentations({
       space: spaceToCreate.uuid,
-      name: eampleName1,
+      name: exampleName1,
     }))
     assert.equal(representations.length, 1)
     const [representation] = representations
     assert.equal(representation.blob.type, representation1.type)
     assert.deepEqual(
       await representation.blob.arrayBuffer(),
-      await representation1.arrayBuffer())
+      await representation1.arrayBuffer()
+    );
+
+    // try to delete the resource
+    {
+      await resourceRepo.deleteById(`urn:uuid:${spaceToCreate.uuid}/${exampleName1}`);
+    }
   });
 })
 

@@ -1,4 +1,4 @@
-import { Kysely, SqliteDialect } from 'kysely'
+import { Kysely, SqliteDialect, SqliteIntrospector } from 'kysely'
 import { serve } from '@hono/node-server'
 import Sqlite3Database from 'better-sqlite3'
 import type { Database } from 'wallet-attached-storage-database/types'
@@ -7,6 +7,8 @@ import WAS from 'wallet-attached-storage-server'
 import { initializeDatabaseSchema } from '../../database/src/schema.ts'
 import { parseSqliteDatabaseUrl } from '../../database/src/sqlite3/database-url-sqlite3.ts'
 import * as path from 'node:path'
+import { createKyselyFromDatabaseUrl } from '../src/database-url.ts'
+import { PostgresIntrospector } from 'kysely'
 
 // store data in-memory
 const data = createDatabaseFromEnv({
@@ -39,7 +41,7 @@ const server = serve({
   fetch,
   port
 }, (info) => {
-  console.log(`Listening on http://localhost:${info.port}`)
+  console.log(`url: http://localhost:${info.port}`)
 })
 
 /**
@@ -50,11 +52,8 @@ function createDatabaseFromEnv(env: {
   DATABASE_URL?: unknown
 }) {
   if (env.DATABASE_URL) {
-    console.debug('creating database from DATABASE_URL')
-    const database = createDatabaseFromSqlite3Url(env.DATABASE_URL?.toString())
-    const parsedUrl = parseSqliteDatabaseUrl(env.DATABASE_URL?.toString())
-    const relativeDatabasePath = path.relative(process.cwd(), parsedUrl.pathname)
-    console.debug('database pathname is', relativeDatabasePath)
+    const database = createKyselyFromDatabaseUrl(env.DATABASE_URL?.toString())
+    console.debug('database.type:', getKindOfDatabase(database))
     if (database) {
       return database
     }
@@ -74,4 +73,14 @@ function createInMemoryDatabase() {
     })
   })
   return data
+}
+
+function getKindOfDatabase(database: Database) {
+  if (database.introspection instanceof SqliteIntrospector) {
+    return 'sqlite' as const
+  }
+  if (database.introspection instanceof PostgresIntrospector) {
+    return 'postgresql' as const
+  }
+  throw new Error(`Unknown database introspection type: ${database.introspection}`)
 }
