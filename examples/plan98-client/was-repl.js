@@ -33,22 +33,25 @@ function getContentTypeByPath(filePath) {
 }
 
 const $ = elf('was-repl', {
-  loading: true,
   host: plan98.env.PLAN98_WAS_HOST,
   path: '',
   home: '',
   input: 'Hello World'
 })
 
+function fetchSauce(src) {
+  fetch(src).then(res => res.text()).then(file => {
+    $.teach({ input: file, path: src, src: null })
+  })
+}
+
 let signer
 async function init(target) {
   if (target.initialized) return
   target.initialized = true
 
-  const src = target.getAttribute('src') || './server.js'
-  fetch(src).then(res => res.text()).then(file => {
-    $.teach({ input: file, path: src })
-  })
+  const src = target.getAttribute('src') || 'server.js'
+  fetchSauce(src)
 
   const { host } = $.learn()
   const credentials = localStorage.getItem('was/signer')
@@ -83,8 +86,6 @@ async function init(target) {
       console.debug(e)
       toast(e.message, { type: 'error' })
     })
-
-  $.teach({ loading: false })
 }
 
 async function publish(spaceId) {
@@ -222,14 +223,7 @@ async function publish(spaceId) {
 
 $.draw((target) => {
   init(target)
-  const { host, path, loading, input, src } = $.learn()
-  if (loading) {
-    return `
-      <div style="width: 100%; height: 100%;">
-        <flying-disk></flying-disk>
-      </div>
-    `
-  }
+  const { host, path, input, src } = $.learn()
 
   return `
     <div class="action-bar">
@@ -251,7 +245,41 @@ $.draw((target) => {
       ${src ? `<iframe src="${src}">` : ''}
     </div>
   `
+},{
+  beforeUpdate(target) {
+    saveCursor(target)
+  },
+  afterUpdate(target) {
+    replaceCursor(target)
+  }
 })
+
+let sel = []
+const tags = ['TEXTAREA', 'INPUT']
+function saveCursor(target) {
+  if(target.contains(document.activeElement)) {
+    target.dataset.field = document.activeElement.name
+    if(tags.includes(document.activeElement.tagName)) {
+      const textarea = document.activeElement
+      sel = [textarea.selectionStart, textarea.selectionEnd];
+    }
+  }
+}
+
+function replaceCursor(target) {
+  const field = target.querySelector(`[name="${target.dataset.field}"]`)
+  
+  if(field) {
+    field.focus()
+
+    if(tags.includes(field.tagName)) {
+      field.selectionStart = sel[0];
+      field.selectionEnd = sel[1];
+    }
+  }
+}
+
+
 
 $.when('click', '[data-run]', async (event) => {
   const root = event.target.closest($.link)
@@ -261,6 +289,11 @@ $.when('click', '[data-run]', async (event) => {
 $.when('input', '[data-bind]', (event) => {
   $.teach({ [event.target.name]: event.target.value })
 })
+
+$.when('blur', '[name="path"]', (event) => {
+  fetchSauce(event.target.value)
+})
+
 
 $.style(`
   & {
